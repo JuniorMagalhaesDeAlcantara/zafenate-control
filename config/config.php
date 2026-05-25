@@ -53,7 +53,7 @@ define('APP_KEY',     env('APP_KEY',  ''));
 define('ROOT_PATH',   dirname(__DIR__));
 define('APP_PATH',    ROOT_PATH . '/app');
 define('CONFIG_PATH', ROOT_PATH . '/config');
-define('PUBLIC_PATH', ROOT_PATH . '/public');
+define('PUBLIC_PATH', ROOT_PATH . '/public_html');
 define('STORAGE_PATH',ROOT_PATH . '/storage');
 define('VIEW_PATH',   APP_PATH  . '/views');
 
