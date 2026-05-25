@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    # Comando correto é RewriteEngine On
+    RewriteEngine On
+    
+    # Se o arquivo ou pasta existir no disco, acessa direto (CSS, JS, Imagens)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    
+    # Se não existir, joga tudo para o index.php processar as rotas
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>

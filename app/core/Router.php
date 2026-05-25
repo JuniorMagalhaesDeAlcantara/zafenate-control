@@ -141,8 +141,9 @@ class Router
             throw new \RuntimeException("Método '{$method}' não existe em '{$class}'.");
         }
 
-        // Injeta parâmetros nomeados da URI como argumentos
-        $controller->$method(...array_values($params));
+        // Passa os parâmetros da URI como argumentos para o método do controller
+        $requestInstance = new \App\Core\Request();
+        $controller->$method($requestInstance, ...array_values($params));
     }
 
     // ----------------------------------------------------------------

@@ -51,8 +51,8 @@ class Database
     }
 
     // Impede clone e unserialize do singleton
-    private function __clone() {}
-    public function __wakeup(): never
+    private function __clone(): void {}
+    public function __wakeup(): void
     {
         throw new RuntimeException('Não é permitido deserializar o Database.');
     }
@@ -157,7 +157,6 @@ class Database
 
             $stmt->execute();
             return $stmt;
-
         } catch (PDOException $e) {
             error_log('[Database] Query error: ' . $e->getMessage() . ' | SQL: ' . $sql);
             throw new RuntimeException('Erro ao executar operação no banco de dados.');

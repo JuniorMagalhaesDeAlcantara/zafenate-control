@@ -2,21 +2,6 @@
 
 use App\Core\Session;
 
-// ----------------------------------------------------------------
-// Ambiente
-// ----------------------------------------------------------------
-
-/**
- * Lê variável de ambiente com fallback.
- * Funciona com ou sem .env carregado (via $_ENV ou getenv).
- */
-if (!function_exists('env')) {
-    function env(string $key, mixed $default = null): mixed
-    {
-        $value = $_ENV[$key] ?? getenv($key);
-        return ($value !== false && $value !== null) ? $value : $default;
-    }
-}
 
 // ----------------------------------------------------------------
 // Redirecionamento
@@ -203,5 +188,16 @@ if (!function_exists('dd')) {
         }
         echo '</pre>';
         exit;
+    }
+
+    if (!function_exists('csrf_field')) {
+        /**
+         * Gera o input hidden com o token CSRF para os formulários
+         */
+        function csrf_field(): string
+        {
+            $token = \App\Core\Csrf::token();
+            return '<input type="hidden" name="_token" value="' . $token . '">';
+        }
     }
 }

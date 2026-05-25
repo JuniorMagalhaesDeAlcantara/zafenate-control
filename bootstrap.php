@@ -2,26 +2,21 @@
 
 /**
  * ZAFENATE CONTROL — Bootstrap
- *
- * Carregado pelo public/index.php antes de qualquer coisa.
- * Responsabilidades:
- *   1. Constantes e ambiente
- *   2. Autoload
- *   3. Helpers
- *   4. Sessão
- *   5. Router + Rotas
- *   6. Dispatch
+ * (Caminho: C:\www\Zafenate_Control\bootstrap.php)
  */
 
 // ----------------------------------------------------------------
-// 1. Ambiente
+// 1. Definições de Ambiente e Constantes
 // ----------------------------------------------------------------
+define('APP_ROOT', __DIR__);
 
-define('APP_ROOT', dirname(__DIR__));
-define('APP_ENV',  $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'development');
-define('APP_DEBUG', APP_ENV !== 'production');
+// 2. Carrega as Configurações do Projeto e o .env de uma vez só
+if (file_exists(APP_ROOT . '/config/config.php')) {
+    require_once APP_ROOT . '/config/config.php';
+}
 
-if (APP_DEBUG) {
+// 3. Ativa exibição de erros baseado no APP_DEBUG configurado
+if (defined('APP_DEBUG') && APP_DEBUG) {
     error_reporting(E_ALL);
     ini_set('display_errors', '1');
 } else {
@@ -31,99 +26,69 @@ if (APP_DEBUG) {
 
 date_default_timezone_set('America/Sao_Paulo');
 
-// ----------------------------------------------------------------
-// 2. Autoload simples (PSR-4 manual)
-//    Mapeia App\* → app/*  e  raiz do projeto
-// ----------------------------------------------------------------
 
+// ----------------------------------------------------------------
+// 4. Autoload (PSR-4)
+// ----------------------------------------------------------------
 spl_autoload_register(function (string $class): void {
-    // Remove namespace raiz App\
-    $relative = str_replace('\\', '/', $class);
-
-    // Tenta em app/ (namespace App\)
-    if (str_starts_with($relative, 'App/')) {
-        $file = APP_ROOT . '/' . lcfirst($relative) . '.php';
+    if (str_starts_with($class, 'App\\')) {
+        $relative = substr($class, 4);
+        $file = APP_ROOT . '/app/' . str_replace('\\', '/', $relative) . '.php';
+        
         if (file_exists($file)) {
             require_once $file;
-            return;
         }
-    }
-
-    // Fallback: caminho direto
-    $file = APP_ROOT . '/' . $relative . '.php';
-    if (file_exists($file)) {
-        require_once $file;
     }
 });
 
-// ----------------------------------------------------------------
-// 3. Helpers globais
-// ----------------------------------------------------------------
-
-require_once APP_ROOT . '/app/helpers/functions.php';
 
 // ----------------------------------------------------------------
-// 4. Carrega .env (simples, sem dependência externa)
+// 5. Helpers Globais (Funções utilitárias como money, date_br, dd)
 // ----------------------------------------------------------------
-
-$envFile = APP_ROOT . '/.env';
-if (file_exists($envFile)) {
-    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        if (str_starts_with(trim($line), '#') || !str_contains($line, '=')) {
-            continue;
-        }
-        [$key, $value] = explode('=', $line, 2);
-        $key   = trim($key);
-        $value = trim($value, " \t\n\r\"'");
-        if (!array_key_exists($key, $_ENV)) {
-            $_ENV[$key] = $value;
-            putenv("{$key}={$value}");
-        }
-    }
+if (file_exists(APP_ROOT . '/app/helpers/functions.php')) {
+    require_once APP_ROOT . '/app/helpers/functions.php';
 }
 
-// ----------------------------------------------------------------
-// 5. Sessão
-// ----------------------------------------------------------------
 
+// ----------------------------------------------------------------
+// 6. Inicialização do Sistema (Sessão de forma segura e Rotas)
+// ----------------------------------------------------------------
 use App\Core\Session;
-
-Session::start();
-
-// ----------------------------------------------------------------
-// 6. Router — registra middlewares e rotas
-// ----------------------------------------------------------------
-
 use App\Core\Router;
 use App\Core\Request;
 
+// Agora o Session::start() sabe o que é env() porque o config.php rodou na linha 13!
+Session::start();
+
+// Cria o roteador do sistema
 $router = new Router();
 
-// Aliases de middleware
+// Registra os aliases dos middlewares
 $router->middleware('auth',  \App\Middleware\AuthMiddleware::class);
 $router->middleware('guest', \App\Middleware\GuestMiddleware::class);
 $router->middleware('csrf',  \App\Middleware\CsrfMiddleware::class);
 
-require_once APP_ROOT . '/routes/web.php';
+// Carrega as rotas protegidas e públicas
+if (file_exists(APP_ROOT . '/routes/web.php')) {
+    require_once APP_ROOT . '/routes/web.php';
+}
+
 
 // ----------------------------------------------------------------
-// 7. Dispatch
+// 7. Execução (Dispatch)
 // ----------------------------------------------------------------
-
 $request = new Request();
 
 try {
     $router->dispatch($request);
 } catch (\Throwable $e) {
-    if (APP_DEBUG) {
-        echo '<pre style="background:#1e1e1e;color:#ef4444;padding:20px;font-family:monospace;">';
+    if (defined('APP_DEBUG') && APP_DEBUG) {
+        echo '<pre style="background:#1e1e1e;color:#ef4444;padding:20px;font-family:monospace;border-radius:8px;overflow:auto;">';
         echo '<strong>' . get_class($e) . '</strong>: ' . htmlspecialchars($e->getMessage()) . "\n\n";
         echo htmlspecialchars($e->getTraceAsString());
         echo '</pre>';
     } else {
         http_response_code(500);
-        // Em produção: renderize uma view de erro genérica
-        echo 'Ocorreu um erro interno. Tente novamente mais tarde.';
+        echo 'Ocorreu um erro interno no servidor.';
     }
-    error_log('[App] ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
 }
