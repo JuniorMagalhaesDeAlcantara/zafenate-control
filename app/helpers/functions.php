@@ -200,4 +200,15 @@ if (!function_exists('dd')) {
             return '<input type="hidden" name="_token" value="' . $token . '">';
         }
     }
+    /**
+     * Verifica se a rota atual corresponde ao link para aplicar a classe CSS 'active'
+     */
+    function active(string $rota): string
+    {
+        // Pega a URL atual (ex: /produtos ou /dashboard)
+        $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+        // Se a rota bater com o começo da URI, devolve a palavra 'active'
+        return str_starts_with($uri, $rota) ? 'active' : '';
+    }
 }

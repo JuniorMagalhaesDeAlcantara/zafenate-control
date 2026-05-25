@@ -18,7 +18,11 @@ abstract class Controller
      */
     protected function view(string $view, array $data = []): void
     {
-        $path = dirname(__DIR__) . '/views/' . str_replace('.', '/', $view) . '.php';
+        // 1. Aceita tanto ponto (auth.login) quanto barras (auth/login ou auth\login)
+        $viewSanitizada = str_replace(['.', '/', '\\'], DIRECTORY_SEPARATOR, $view);
+
+        // 2. Monta o caminho usando o separador correto do sistema operacional
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'views' . DIRECTORY_SEPARATOR . $viewSanitizada . '.php';
 
         if (!file_exists($path)) {
             throw new \RuntimeException("View '{$view}' não encontrada em: {$path}");
