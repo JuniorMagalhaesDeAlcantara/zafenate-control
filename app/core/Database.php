@@ -51,7 +51,7 @@ class Database
     }
 
     // Impede clone e unserialize do singleton
-    private function __clone(): void {}
+    private function __clone() {}
     public function __wakeup(): void
     {
         throw new RuntimeException('Não é permitido deserializar o Database.');
@@ -113,6 +113,20 @@ class Database
      *       return $id;
      *   });
      */
+    // Métodos avulsos — usados por código legado (prefira transaction(callable))
+    public function beginTransaction(): bool
+    {
+        return $this->pdo->beginTransaction();
+    }
+    public function commit(): bool
+    {
+        return $this->pdo->commit();
+    }
+    public function rollBack(): bool
+    {
+        return $this->pdo->rollBack();
+    }
+
     public function transaction(callable $callback): mixed
     {
         $this->pdo->beginTransaction();
@@ -158,8 +172,16 @@ class Database
             $stmt->execute();
             return $stmt;
         } catch (PDOException $e) {
-            error_log('[Database] Query error: ' . $e->getMessage() . ' | SQL: ' . $sql);
-            throw new RuntimeException('Erro ao executar operação no banco de dados.');
+            $msg = '[Database] Query error: ' . $e->getMessage() . ' | SQL: ' . $sql;
+            error_log($msg);
+
+            // Em desenvolvimento, relança com mensagem completa para depuração.
+            // Em produção, troque APP_DEBUG por false no config.
+            if (defined('APP_DEBUG') && APP_DEBUG) {
+                throw new RuntimeException($msg, 0, $e);
+            }
+
+            throw new RuntimeException('Erro ao executar operação no banco de dados.', 0, $e);
         }
     }
 

@@ -95,7 +95,7 @@ abstract class Controller
     /**
      * Adiciona flash message e executa o redirect.
      */
-    public function with(string $key, mixed $value): never
+    public function with(string $key, mixed $value): void
     {
         Session::flash($key, $value);
         $this->doRedirect();
@@ -108,7 +108,7 @@ abstract class Controller
         }
     }
 
-    private function doRedirect(): never
+    private function doRedirect(): void
     {
         header('Location: ' . $this->_redirectUri);
         exit;
@@ -125,7 +125,7 @@ abstract class Controller
      *   return $this->json(['ok' => true, 'data' => $produto]);
      *   return $this->json(['erro' => 'Não encontrado'], 404);
      */
-    protected function json(mixed $data, int $status = 200): never
+    protected function json(mixed $data, int $status = 200): void
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=UTF-8');
@@ -212,14 +212,14 @@ abstract class Controller
     // Abort
     // ----------------------------------------------------------------
 
-    protected function abort(int $code, string $message = ''): never
+    protected function abort(int $code, string $message = ''): void
     {
         http_response_code($code);
         echo $message ?: "Erro {$code}";
         exit;
     }
 
-    protected function notFound(): never
+    protected function notFound(): void
     {
         $this->abort(404, 'Página não encontrada.');
     }

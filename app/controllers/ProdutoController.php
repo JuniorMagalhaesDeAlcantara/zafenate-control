@@ -56,8 +56,7 @@ class ProdutoController extends Controller
      */
     public function create(): void
     {
-        // Gerar um código sequencial ou timestamp para o código interno se necessário
-        $codigoObtido = 'PRD-' . strtoupper(substr(uniqid(), -6));
+        $codigoObtido = $this->produtoModel->gerarCodigo();
 
         // Substituir pelos Models reais depois
         $categorias = $this->produtoModel->listarCategoriasForm() ?? [];
@@ -89,11 +88,12 @@ class ProdutoController extends Controller
 
             // 🔥 TRATAMENTO 2: Limpa strings vazias de campos numéricos opcionais para não quebrar o MySQL
             if (empty($dados['preco_custo'])) $dados['preco_custo'] = 0.00;
+            if (empty($dados['estoque_atual'])) $dados['estoque_atual'] = 0.000;
             if (empty($dados['estoque_minimo'])) $dados['estoque_minimo'] = 0.000;
             if (empty($dados['estoque_maximo'])) $dados['estoque_maximo'] = null;
 
-            // Gera o código interno obrigatório automático para o insert
-            $dados['codigo'] = 'PRD-' . strtoupper(substr(uniqid(), -6));
+            // Gera código interno sequencial (PRD-000001, PRD-000002…)
+            $dados['codigo'] = $this->produtoModel->gerarCodigo();
 
             $this->produtoModel->criar($dados);
 
@@ -162,8 +162,12 @@ class ProdutoController extends Controller
             }
 
             if (empty($dados['preco_custo'])) $dados['preco_custo'] = 0.00;
+            if (empty($dados['estoque_atual'])) $dados['estoque_atual'] = 0.000;
             if (empty($dados['estoque_minimo'])) $dados['estoque_minimo'] = 0.000;
             if (empty($dados['estoque_maximo'])) $dados['estoque_maximo'] = null;
+
+            // Estoque só muda via MovimentacaoEstoque — nunca pelo form de edição
+            unset($dados['estoque_atual']);
 
             // Como o input do código fica "disabled" no formulário HTML, o navegador não o envia no POST.
             // Buscamos o registro atual no banco para herdar o código original e passar na validação.

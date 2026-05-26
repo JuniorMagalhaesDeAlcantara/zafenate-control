@@ -1,0 +1,169 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Request;
+use App\Core\Session;
+use App\Core\Database;
+use App\Models\Venda as VendaModel;
+
+class PdvController extends Controller
+{
+    private Database $db;
+    private VendaModel $vendaModel;
+
+    public function __construct()
+    {
+        if (!Session::get('usuario_id')) {
+            redirect('/login');
+        }
+        $this->db         = Database::getInstance();
+        $this->vendaModel = new VendaModel();
+    }
+
+    // ----------------------------------------------------------------
+    // GET /pdv
+    // ----------------------------------------------------------------
+    public function index(): void
+    {
+        $usuarioId = Session::get('usuario_id');
+
+        $caixa = $this->db->fetchOne(
+            "SELECT * FROM caixas WHERE usuario_id = :uid AND status = 'aberto'",
+            ['uid' => $usuarioId]
+        );
+
+        if (!$caixa) {
+            Session::flash('error', 'Abra o caixa antes de acessar o PDV.');
+            $this->redirect('/caixa');
+            return;
+        }
+
+        $produtos = $this->db->fetchAll(
+            "SELECT p.id, p.nome, p.preco_venda, p.estoque_atual,
+                    p.codigo, u.sigla AS unidade_sigla
+             FROM produtos p
+             LEFT JOIN unidades u ON u.id = p.unidade_id
+             WHERE p.ativo = 1
+             ORDER BY p.nome ASC
+             LIMIT 16"
+        );
+
+        $clientes = $this->db->fetchAll(
+            "SELECT id, nome FROM clientes WHERE ativo = 1 ORDER BY nome ASC"
+        );
+
+        $vendasHoje = $this->db->fetchOne(
+            "SELECT COALESCE(SUM(total), 0) AS total_dia
+             FROM vendas
+             WHERE caixa_id = :cid AND status = 'finalizada'",
+            ['cid' => $caixa['id']]
+        );
+
+        $this->view('pdv/index', [
+            'title'          => 'PDV — Frente de Caixa',
+            'caixa'          => $caixa,
+            'produtos'       => $produtos,
+            'clientes'       => $clientes,
+            'totalVendasDia' => $vendasHoje['total_dia'] ?? 0.00,
+        ]);
+    }
+
+    // ----------------------------------------------------------------
+    // GET /pdv/buscar?q=...  — retorna JSON
+    // ----------------------------------------------------------------
+    public function buscar(Request $request): void
+    {
+        $q = trim($request->input('q', ''));
+
+        if (strlen($q) < 2) {
+            $this->json(['produtos' => []]);
+        }
+
+        $termo = "%{$q}%";
+
+        $produtos = $this->db->fetchAll(
+            "SELECT p.id, p.nome, p.preco_venda, p.estoque_atual,
+                    p.codigo, p.codigo_barras, u.sigla AS unidade_sigla
+             FROM produtos p
+             LEFT JOIN unidades u ON u.id = p.unidade_id
+             WHERE p.ativo = 1
+               AND (p.nome           LIKE :busca_nome
+                OR  p.codigo         LIKE :busca_codigo
+                OR  p.codigo_barras  LIKE :busca_barras)
+             ORDER BY p.nome ASC
+             LIMIT 10",
+            [
+                'busca_nome'    => $termo,
+                'busca_codigo'  => $termo,
+                'busca_barras'  => $termo,
+            ]
+        );
+
+        $this->json(['produtos' => $produtos]);
+    }
+
+    // ----------------------------------------------------------------
+    // POST /pdv/finalizar
+    // ----------------------------------------------------------------
+    public function finalizar(Request $request): void
+    {
+        try {
+            // Itens vêm como JSON serializado no campo 'itens'
+            $itens = json_decode($request->input('itens', '[]'), true);
+
+            if (empty($itens)) {
+                Session::flash('error', 'Carrinho vazio. Adicione produtos antes de finalizar.');
+                $this->redirect('/pdv');
+                return;
+            }
+
+            $subtotal      = (float) $request->input('subtotal', 0);
+            $descontoValor = (float) $request->input('desconto_valor', 0);
+            $total         = (float) $request->input('total', 0);
+            $descontoTipo  = $request->input('desconto_tipo', 'valor');
+            $descontoPerc  = ($descontoTipo === 'percentual' && $subtotal > 0)
+                ? round($descontoValor / $subtotal * 100, 4)
+                : 0.00;
+
+            $caixaId   = (int) $request->input('caixa_id');
+            $clienteId = (int) $request->input('cliente_id', 0) ?: null;
+            $usuarioId = (int) Session::get('usuario_id');
+
+            $pagamentos = [[
+                'forma' => $request->input('forma_pagamento', 'dinheiro'),
+                'valor' => $total,
+                'troco' => (float) $request->input('troco', 0),
+            ]];
+
+            $this->vendaModel->salvarVenda(
+                dados: [
+                    'caixa_id'       => $caixaId,
+                    'cliente_id'     => $clienteId,
+                    'usuario_id'     => $usuarioId,
+                    'subtotal'       => $subtotal,
+                    'desconto_tipo'  => $descontoTipo,
+                    'desconto_valor' => $descontoValor,
+                    'desconto_perc'  => $descontoPerc,
+                    'total'          => $total,
+                ],
+                itens: $itens,
+                pagamentos: $pagamentos
+            );
+
+            Session::flash('success', 'Venda finalizada com sucesso!');
+            $this->redirect('/pdv');
+        } catch (\RuntimeException $e) {
+            // Erros de negócio (estoque insuficiente etc.) — mostra para o operador
+            Session::flash('error', $e->getMessage());
+            $this->redirect('/pdv');
+        } catch (\Throwable $e) {
+            error_log('[PDV] Erro ao finalizar venda: ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
+            Session::flash('error', defined('APP_DEBUG') && APP_DEBUG
+                ? $e->getMessage()
+                : 'Erro interno ao processar venda. Tente novamente.');
+            $this->redirect('/pdv');
+        }
+    }
+}

@@ -23,8 +23,14 @@ class Request
         return strtoupper($this->server['REQUEST_METHOD'] ?? 'GET');
     }
 
-    public function isGet(): bool    { return $this->method() === 'GET'; }
-    public function isPost(): bool   { return $this->method() === 'POST'; }
+    public function isGet(): bool
+    {
+        return $this->method() === 'GET';
+    }
+    public function isPost(): bool
+    {
+        return $this->method() === 'POST';
+    }
     public function isAjax(): bool
     {
         return ($this->server['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
@@ -38,22 +44,36 @@ class Request
         return $pos !== false ? substr($uri, 0, $pos) : $uri;
     }
 
-    // GET
+    // GET (query string) — lê exclusivamente $_GET
     public function query(string $key, mixed $default = null): mixed
     {
         return $this->sanitize($this->get[$key] ?? $default);
     }
 
-    // POST
+    /**
+     * Lê POST primeiro, cai em GET se não encontrar.
+     * Funciona para filtros via query string (?busca=x) e forms POST.
+     */
     public function input(string $key, mixed $default = null): mixed
     {
-        return $this->sanitize($this->post[$key] ?? $default);
+        return $this->sanitize($this->post[$key] ?? $this->get[$key] ?? $default);
     }
 
-    // Retorna todos os campos POST sanitizados
+    /**
+     * Alias semântico de input() — mesma lógica POST → GET.
+     */
+    public function get(string $key, mixed $default = null): mixed
+    {
+        return $this->input($key, $default);
+    }
+
+    /**
+     * Retorna todos os campos sanitizados (POST merged com GET, POST tem precedência).
+     */
     public function all(): array
     {
-        return array_map([$this, 'sanitize'], $this->post);
+        $merged = array_merge($this->get, $this->post); // POST sobrescreve GET
+        return array_map([$this, 'sanitize'], $merged);
     }
 
     // Upload de arquivo
@@ -65,7 +85,8 @@ class Request
     // Token CSRF do POST
     public function csrfToken(): string
     {
-        return $this->post['_csrf_token'] ?? '';
+        // Aceita tanto '_csrf' (padrão do sistema) quanto '_csrf_token' (legado)
+        return $this->post['_csrf'] ?? $this->post['_csrf_token'] ?? $this->server['HTTP_X_CSRF_TOKEN'] ?? '';
     }
 
     // Sanitização básica — strips tags e espaços

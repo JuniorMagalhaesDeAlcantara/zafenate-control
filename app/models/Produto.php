@@ -10,9 +10,19 @@ class Produto
 
     // Campos permitidos para insert/update (whitelist)
     private array $fillable = [
-        'categoria_id', 'unidade_id', 'codigo', 'codigo_barras',
-        'nome', 'descricao', 'imagem', 'preco_custo', 'preco_venda',
-        'estoque_minimo', 'estoque_maximo', 'ativo'
+        'categoria_id',
+        'unidade_id',
+        'codigo',
+        'codigo_barras',
+        'nome',
+        'descricao',
+        'imagem',
+        'preco_custo',
+        'preco_venda',
+        'estoque_atual',   // permitido apenas no CREATE — update vai por MovimentacaoEstoque
+        'estoque_minimo',
+        'estoque_maximo',
+        'ativo'
     ];
 
     public function __construct()
@@ -34,8 +44,11 @@ class Produto
         $params = [];
 
         if (!empty($filtros['busca'])) {
-            $where[]        = '(p.nome LIKE :busca OR p.codigo LIKE :busca OR p.codigo_barras LIKE :busca)';
-            $params['busca'] = '%' . $filtros['busca'] . '%';
+            $where[]        = '(p.nome LIKE :busca_nome OR p.codigo LIKE :busca_codigo OR p.codigo_barras LIKE :busca_barras)';
+            $termo = '%' . $filtros['busca'] . '%';
+            $params['busca_nome']   = $termo;
+            $params['busca_codigo'] = $termo;
+            $params['busca_barras'] = $termo;
         }
 
         if (isset($filtros['categoria_id']) && $filtros['categoria_id'] !== '') {

@@ -76,4 +76,6 @@ class Caixa
             'id'        => $caixaId
         ]);
     }
+
+    
 }

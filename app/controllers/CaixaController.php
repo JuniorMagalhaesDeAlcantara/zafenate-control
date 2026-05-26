@@ -32,14 +32,17 @@ class CaixaController extends Controller
 
         if (!$caixa) {
             $this->view('caixas/abrir', [
-                'title' => 'Abrir Caixa - Zafenate Control'
+                'title' => 'Abrir Caixa - Zafenate Control',
+                'csrf'  => csrf_field() // Garante o token também na abertura
             ]);
             return;
         }
 
+        // AQUI ESTÁ O AJUSTE: Passamos o token para a view de gestão
         $this->view('caixas/gestao', [
             'title' => 'Gestão do Caixa - Zafenate Control',
-            'caixa' => $caixa
+            'caixa' => $caixa,
+            'csrf'  => csrf_field() // Esta é a variável que o seu HTML vai usar
         ]);
     }
 
@@ -78,9 +81,7 @@ class CaixaController extends Controller
         try {
             $caixaId = (int)$request->input('caixa_id');
 
-            // Pega o valor que o operador contou na gaveta
             $saldoInformado = $request->input('saldo_informado', '0,00');
-            // Trata o formato de moeda brasileira para o padrão americano do banco
             $saldoInformado = str_replace(['.', ','], ['', '.'], $saldoInformado);
 
             $observacao = $request->input('observacao_fechamento', null);
@@ -89,7 +90,6 @@ class CaixaController extends Controller
                 throw new \Exception("ID do caixa não fornecido.");
             }
 
-            // Dispara a lógica matemática e o UPDATE na Model
             $this->caixaModel->fechar($caixaId, $saldoInformado, $observacao);
 
             Session::flash('success', 'Caixa fechado com sucesso! Relatório atualizado.');
