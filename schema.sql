@@ -177,3 +177,233 @@ CREATE INDEX idx_mov_fornecedor  ON movimentacoes_estoque(fornecedor_id);
 CREATE INDEX idx_mov_usuario     ON movimentacoes_estoque(usuario_id);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- ZAFENATE CONTROL — Módulo de Vendas e Caixa
+-- Migration: 002_vendas_caixa.sql
+-- Depende de: 001_base.sql (usuarios, produtos, clientes)
+-- ============================================================
+ 
+SET FOREIGN_KEY_CHECKS = 0;
+SET NAMES utf8mb4;
+ 
+-- ============================================================
+-- 6. CLIENTES
+-- (Necessário antes de vendas pois vendas referencia clientes)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS clientes (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nome          VARCHAR(150) NOT NULL,
+    cpf_cnpj      VARCHAR(18)  NULL,
+    email         VARCHAR(100) NULL,
+    telefone      VARCHAR(20)  NULL,
+    celular       VARCHAR(20)  NULL,
+    cep           VARCHAR(9)   NULL,
+    logradouro    VARCHAR(150) NULL,
+    numero        VARCHAR(10)  NULL,
+    complemento   VARCHAR(100) NULL,
+    bairro        VARCHAR(80)  NULL,
+    cidade        VARCHAR(80)  NULL,
+    uf            CHAR(2)      NULL,
+    observacoes   TEXT         NULL,
+    ativo         TINYINT(1)   NOT NULL DEFAULT 1,
+    criado_em     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ 
+    UNIQUE KEY uk_cliente_cpf_cnpj (cpf_cnpj)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Clientes';
+ 
+-- Cliente padrão "Consumidor Final" para vendas sem identificação
+INSERT INTO clientes (id, nome, ativo)
+VALUES (1, 'Consumidor Final', 1)
+ON DUPLICATE KEY UPDATE id = id;
+ 
+CREATE INDEX idx_cli_ativo ON clientes(ativo);
+CREATE INDEX idx_cli_nome  ON clientes(nome);
+ 
+ 
+-- ============================================================
+-- 7. CAIXAS
+-- Cada abertura de caixa gera um registro.
+-- Um caixa só pode estar aberto por um operador por vez.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS caixas (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    usuario_id        INT UNSIGNED NOT NULL,
+    status            ENUM('aberto','fechado') NOT NULL DEFAULT 'aberto',
+    saldo_abertura    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    saldo_esperado    DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- calculado ao fechar
+    saldo_informado   DECIMAL(10,2) NULL,                  -- contado pelo operador
+    diferenca         DECIMAL(10,2) GENERATED ALWAYS AS   -- diferença automática
+                        (saldo_informado - saldo_esperado) STORED,
+    total_vendas      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total_sangrias    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total_suprimentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    observacao_fechamento TEXT NULL,
+    aberto_em         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fechado_em        DATETIME NULL,
+    atualizado_em     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ 
+    CONSTRAINT fk_caixa_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Controle de abertura e fechamento de caixa';
+ 
+CREATE INDEX idx_caixa_usuario ON caixas(usuario_id);
+CREATE INDEX idx_caixa_status  ON caixas(status);
+ 
+ 
+-- ============================================================
+-- 8. MOVIMENTAÇÕES DO CAIXA (sangria, suprimento, etc.)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS caixa_movimentos (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    caixa_id   INT UNSIGNED NOT NULL,
+    usuario_id INT UNSIGNED NULL,
+    tipo       ENUM('suprimento','sangria') NOT NULL,
+    valor      DECIMAL(10,2) NOT NULL,
+    observacao VARCHAR(255)  NULL,
+    criado_em  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ 
+    CONSTRAINT fk_cmov_caixa
+        FOREIGN KEY (caixa_id) REFERENCES caixas(id)
+        ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_cmov_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Sangrias e suprimentos do caixa';
+ 
+CREATE INDEX idx_cmov_caixa ON caixa_movimentos(caixa_id);
+ 
+ 
+-- ============================================================
+-- 9. VENDAS (cabeçalho)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS vendas (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    caixa_id        INT UNSIGNED NOT NULL,
+    cliente_id      INT UNSIGNED NOT NULL DEFAULT 1, -- padrão: Consumidor Final
+    usuario_id      INT UNSIGNED NOT NULL,
+    numero          INT UNSIGNED NOT NULL,           -- número sequencial da venda
+    status          ENUM('aberta','finalizada','cancelada') NOT NULL DEFAULT 'aberta',
+ 
+    -- Totais
+    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    desconto_tipo   ENUM('percentual','valor') NULL,
+    desconto_valor  DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- valor em R$ calculado
+    desconto_perc   DECIMAL(5,2)  NOT NULL DEFAULT 0.00, -- percentual
+    total           DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+ 
+    -- Controle
+    observacao      VARCHAR(255) NULL,
+    cancelado_por   INT UNSIGNED NULL,
+    motivo_cancelamento VARCHAR(255) NULL,
+    cancelado_em    DATETIME NULL,
+    criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ 
+    UNIQUE KEY uk_venda_numero (numero),
+ 
+    CONSTRAINT fk_venda_caixa
+        FOREIGN KEY (caixa_id) REFERENCES caixas(id)
+        ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_venda_cliente
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+        ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_venda_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_venda_cancelado_por
+        FOREIGN KEY (cancelado_por) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Cabeçalho das vendas';
+ 
+CREATE INDEX idx_venda_caixa    ON vendas(caixa_id);
+CREATE INDEX idx_venda_cliente  ON vendas(cliente_id);
+CREATE INDEX idx_venda_status   ON vendas(status);
+CREATE INDEX idx_venda_criado   ON vendas(criado_em);
+ 
+ 
+-- ============================================================
+-- 10. ITENS DA VENDA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS venda_itens (
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    venda_id          INT UNSIGNED NOT NULL,
+    produto_id        INT UNSIGNED NOT NULL,
+ 
+    -- Snapshot dos dados do produto no momento da venda
+    produto_nome      VARCHAR(150) NOT NULL,
+    produto_codigo    VARCHAR(50)  NOT NULL,
+    unidade_sigla     VARCHAR(10)  NOT NULL DEFAULT 'UN',
+ 
+    quantidade        DECIMAL(10,3) NOT NULL,
+    preco_unitario    DECIMAL(10,2) NOT NULL, -- preço no momento da venda
+    preco_custo       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    desconto_item     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    subtotal          DECIMAL(10,2) NOT NULL, -- (qtd * preco_unitario) - desconto_item
+ 
+    CONSTRAINT fk_item_venda
+        FOREIGN KEY (venda_id) REFERENCES vendas(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_item_produto
+        FOREIGN KEY (produto_id) REFERENCES produtos(id)
+        ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Itens de cada venda';
+ 
+CREATE INDEX idx_item_venda   ON venda_itens(venda_id);
+CREATE INDEX idx_item_produto ON venda_itens(produto_id);
+ 
+ 
+-- ============================================================
+-- 11. PAGAMENTOS DA VENDA
+-- Suporte a pagamento misto (ex: R$50 dinheiro + R$50 PIX)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS venda_pagamentos (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    venda_id    INT UNSIGNED NOT NULL,
+    forma       ENUM('dinheiro','pix','cartao_debito','cartao_credito','voucher','outros') NOT NULL,
+    valor       DECIMAL(10,2) NOT NULL,
+    troco       DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- só se forma = dinheiro
+    referencia  VARCHAR(100) NULL, -- NSU, código PIX, etc.
+    criado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ 
+    CONSTRAINT fk_pgto_venda
+        FOREIGN KEY (venda_id) REFERENCES vendas(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pagamentos de cada venda (suporte a misto)';
+ 
+CREATE INDEX idx_pgto_venda ON venda_pagamentos(venda_id);
+CREATE INDEX idx_pgto_forma ON venda_pagamentos(forma);
+ 
+ 
+-- ============================================================
+-- 12. CONFIGURAÇÕES DA EMPRESA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS configuracoes (
+    chave         VARCHAR(60)  NOT NULL PRIMARY KEY,
+    valor         TEXT         NULL,
+    tipo          ENUM('texto','imagem','cor','booleano','numero') NOT NULL DEFAULT 'texto',
+    descricao     VARCHAR(150) NULL,
+    atualizado_em DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Configurações da empresa';
+ 
+INSERT INTO configuracoes (chave, valor, tipo, descricao) VALUES
+    ('empresa_nome',    'Minha Loja',  'texto',   'Nome da empresa exibido no sistema'),
+    ('empresa_logo',    '',            'imagem',  'Arquivo de logo (uploads/logo/)'),
+    ('empresa_cor',     '#1A1A1A',     'cor',     'Cor primária da sidebar e botões'),
+    ('empresa_slogan',  '',            'texto',   'Slogan ou descrição curta'),
+    ('empresa_cnpj',    '',            'texto',   'CNPJ da empresa'),
+    ('empresa_telefone','',            'texto',   'Telefone de contato'),
+    ('pdv_desconto_max','10',          'numero',  'Desconto máximo permitido no PDV (%)'),
+    ('pdv_exige_cliente','0',          'booleano','Exigir cliente identificado no PDV')
+ON DUPLICATE KEY UPDATE chave = chave;
+ 
+ 
+SET FOREIGN_KEY_CHECKS = 1;
+ 
