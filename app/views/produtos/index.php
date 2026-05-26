@@ -135,7 +135,8 @@
                                         </a>
 
                                         <form action="/produtos/<?= $p['id'] ?>/status" method="POST" style="display:inline">
-                                            <?= csrf_field() ?>
+                                            <?= $csrf ?? '' ?>
+
                                             <button
                                                 type="submit"
                                                 class="act-btn <?= (isset($p['ativo']) && $p['ativo']) ? '' : 'activate' ?>"

@@ -43,66 +43,159 @@ class ProdutoController extends Controller
             'title'      => 'Produtos - Zafenate Control',
             'produtos'   => $produtos,
             'totais'     => $totais,
-            'filtros'    => $filtros,
-            'categorias' => $categorias
+            'categorias' => $categorias,
+            'filtros'    => $filtros
         ];
 
-        // 🌟 CORREÇÃO: Usando o renderizador oficial do seu Framework (faz o extract() automático)
         $this->view('produtos/index', $dados);
     }
 
     /**
      * GET /produtos/criar
-     * Exibe o formulário de cadastro de um novo produto
+     * Exibe o formulário de cadastro de novo produto
      */
     public function create(): void
     {
-        // Gera o próximo código automático (Ex: PRD-000001) para já exibir travado no input do form
-        $proximoCodigo = $this->produtoModel->gerarCodigo();
+        // Gerar um código sequencial ou timestamp para o código interno se necessário
+        $codigoObtido = 'PRD-' . strtoupper(substr(uniqid(), -6));
+
+        // Substituir pelos Models reais depois
+        $categorias = $this->produtoModel->listarCategoriasForm() ?? [];
+        $unidades   = $this->produtoModel->listarUnidadesForm() ?? [];
 
         $dados = [
             'title'      => 'Novo Produto - Zafenate Control',
-            'codigo'     => $proximoCodigo,
-            'unidades'   => [], // Popular com (new Unidade())->listar() futuramente
-            'categorias' => []
+            'codigo'     => $codigoObtido,
+            'categorias' => $categorias,
+            'unidades'   => $unidades
         ];
 
-        // 🌟 DICA: Quando for criar a tela visual de cadastro, basta descomentar a linha abaixo:
-        // $this->view('produtos/create', $dados);
-
-        echo "<pre>➕ TELA DE CADASTRO DE PRODUTO\nCódigo Sugerido: {$proximoCodigo}</pre>";
-        die();
+        $this->view('produtos/create', $dados);
     }
 
     /**
      * POST /produtos/criar
-     * Processa a inserção do novo produto no banco
+     * Processa o salvamento do novo produto no banco
      */
     public function store(Request $request): void
     {
         try {
             $dados = $request->all();
 
-            // Força o código sequencial automático gerado pelo seu Model
-            $dados['codigo'] = $this->produtoModel->gerarCodigo();
-            $dados['ativo']  = 1;
+            // 🔥 TRATAMENTO 1: Evita quebra se categoria vier vazia
+            if (empty($dados['categoria_id'])) {
+                $dados['categoria_id'] = null;
+            }
 
-            $id = $this->produtoModel->criar($dados);
+            // 🔥 TRATAMENTO 2: Limpa strings vazias de campos numéricos opcionais para não quebrar o MySQL
+            if (empty($dados['preco_custo'])) $dados['preco_custo'] = 0.00;
+            if (empty($dados['estoque_minimo'])) $dados['estoque_minimo'] = 0.000;
+            if (empty($dados['estoque_maximo'])) $dados['estoque_maximo'] = null;
 
-            Session::flash('success', 'Produto criado com sucesso!');
+            // Gera o código interno obrigatório automático para o insert
+            $dados['codigo'] = 'PRD-' . strtoupper(substr(uniqid(), -6));
+
+            $this->produtoModel->criar($dados);
+
+            Session::flash('success', 'Produto cadastrado com sucesso!');
             redirect('/produtos');
         } catch (\InvalidArgumentException $e) {
             Session::flash('error', $e->getMessage());
+            redirect('/produtos/criar');
+        } catch (\Exception $e) {
+            Session::flash('error', 'Erro interno ao salvar produto: ' . $e->getMessage());
             redirect('/produtos/criar');
         }
     }
 
     /**
+     * GET /produtos/{id}/editar
+     * Exibe o formulário populado com os dados do produto para edição
+     */
+    /**
+     * GET /produtos/{id}/editar
+     */
+    public function edit(Request $request, int $id): void
+    {
+        // Força o ID a ser um inteiro, já que ele vem como string da URL
+        $id = (int)$id;
+
+        $produto = $this->produtoModel->buscarPorId($id);
+
+        if (!$produto) {
+            Session::flash('error', 'Produto não encontrado.');
+            redirect('/produtos');
+        }
+
+        $categorias = $this->produtoModel->listarCategoriasForm() ?? [];
+        $unidades   = $this->produtoModel->listarUnidadesForm() ?? [];
+
+        $dados = [
+            'title'      => 'Editar Produto - Zafenate Control',
+            'produto'    => $produto,
+            'codigo'     => $produto['codigo'],
+            'categorias' => $categorias,
+            'unidades'   => $unidades
+        ];
+
+        $this->view('produtos/create', $dados);
+    }
+    /**
+     * POST /produtos/{id}/editar
+     * Processa a atualização dos dados do produto
+     */
+    /**
+     * POST /produtos/{id}/editar
+     * Processa a atualização dos dados do produto
+     */
+    public function update(Request $request, mixed $id): void
+    {
+        // Força o ID a virar um número inteiro puro
+        $id = (int)$id;
+
+        try {
+            $dados = $request->all();
+
+            // TRATAMENTO DE CAMPOS: Evita quebras no MySQL se vierem vazios
+            if (empty($dados['categoria_id'])) {
+                $dados['categoria_id'] = null;
+            }
+
+            if (empty($dados['preco_custo'])) $dados['preco_custo'] = 0.00;
+            if (empty($dados['estoque_minimo'])) $dados['estoque_minimo'] = 0.000;
+            if (empty($dados['estoque_maximo'])) $dados['estoque_maximo'] = null;
+
+            // Como o input do código fica "disabled" no formulário HTML, o navegador não o envia no POST.
+            // Buscamos o registro atual no banco para herdar o código original e passar na validação.
+            $produtoAtual = $this->produtoModel->buscarPorId($id);
+            if ($produtoAtual) {
+                $dados['codigo'] = $produtoAtual['codigo'];
+            }
+
+            // Executa a query de UPDATE na model
+            $this->produtoModel->atualizar($id, $dados);
+
+            Session::flash('success', 'Produto atualizado com sucesso!');
+            redirect('/produtos');
+        } catch (\InvalidArgumentException $e) {
+            Session::flash('error', $e->getMessage());
+            redirect("/produtos/{$id}/editar");
+        } catch (\Exception $e) {
+            Session::flash('error', 'Erro ao atualizar produto: ' . $e->getMessage());
+            redirect("/produtos/{$id}/editar");
+        }
+    }
+    /**
      * GET /produtos/{id}
      * Exibe os detalhes de um produto específico
      */
-    public function show(int $id): void
+    /**
+     * GET /produtos/{id}
+     */
+    public function show(Request $request, int $id): void
     {
+        $id = (int)$id;
+
         $produto = $this->produtoModel->buscarPorId($id);
 
         if (!$produto) {
@@ -115,64 +208,28 @@ class ProdutoController extends Controller
             'produto' => $produto
         ];
 
-        echo "<pre>🔍 VISUALIZAR PRODUTO ID: {$id}\n";
-        print_r($produto);
-        die();
-    }
-
-    /**
-     * GET /produtos/{id}/editar
-     * Exibe o formulário de edição preenchido
-     */
-    public function edit(int $id): void
-    {
-        $produto = $this->produtoModel->buscarPorId($id);
-
-        if (!$produto) {
-            Session::flash('error', 'Produto não encontrado.');
-            redirect('/produtos');
-        }
-
-        $dados = [
-            'title'      => 'Editar Produto - ' . $produto['nome'],
-            'produto'    => $produto,
-            'unidades'   => [],
-            'categorias' => []
-        ];
-
-        echo "<pre>📝 FORMULÁRIO DE EDIÇÃO DO PRODUTO ID: {$id}\n";
-        print_r($produto);
-        die();
-    }
-
-    /**
-     * POST /produtos/{id}/editar
-     * Processa a atualização dos dados do produto
-     */
-    public function update(int $id, Request $request): void
-    {
-        try {
-            $dados = $request->all();
-
-            $this->produtoModel->atualizar($id, $dados);
-
-            Session::flash('success', 'Produto updated com sucesso!');
-            redirect('/produtos');
-        } catch (\InvalidArgumentException $e) {
-            Session::flash('error', $e->getMessage());
-            // 🌟 CORREÇÃO: Adicionado o $ na variável dentro das aspas duplas
-            redirect("/produtos/{$id}/editar");
-        }
+        $this->view('produtos/show', $dados);
     }
 
     /**
      * POST /produtos/{id}/status
      * Ativa/Desativa o produto (Soft Delete)
      */
-    public function toggleStatus(int $id): void
+    public function toggleStatus(Request $request, mixed $id): void
     {
-        $this->produtoModel->alternarStatus($id);
-        Session::flash('success', 'Status alterado com sucesso!');
+        // Força o ID vindo da URL a ser um inteiro puro
+        $id = (int)$id;
+
+        try {
+            // Chama o método exato da sua Model Produto.php
+            $this->produtoModel->alternarStatus($id);
+
+            Session::flash('success', 'Status do produto alterado com sucesso!');
+        } catch (\Exception $e) {
+            Session::flash('error', 'Erro ao alterar o status do produto: ' . $e->getMessage());
+        }
+
+        // Redireciona de volta para a listagem principal
         redirect('/produtos');
     }
 }

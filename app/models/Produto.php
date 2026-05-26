@@ -137,9 +137,9 @@ class Produto
     {
         $sql = "
             SELECT
-                COUNT(*)                                                          AS total,
-                SUM(ativo = 1)                                                    AS ativos,
-                SUM(ativo = 0)                                                    AS inativos,
+                COUNT(*)                                                                  AS total,
+                SUM(ativo = 1)                                                            AS ativos,
+                SUM(ativo = 0)                                                            AS inativos,
                 SUM(ativo = 1 AND estoque_minimo > 0 AND estoque_atual <= estoque_minimo) AS alerta_estoque
             FROM produtos
         ";
@@ -186,7 +186,8 @@ class Produto
     }
 
     /**
-     * Ativa ou desativa (soft delete — nunca apaga do banco).
+     * Nome ajustado para bater com o Controller se necessário,
+     * mas mantido o core original com um apelido se precisar.
      */
     public function alternarStatus(int $id): bool
     {
@@ -201,7 +202,6 @@ class Produto
     public function atualizarEstoque(int $id, float $novoEstoque): bool
     {
         $sql = "UPDATE produtos SET estoque_atual = :estoque, preco_custo = COALESCE(:preco, preco_custo) WHERE id = :id";
-        // Veja MovimentacaoEstoque::registrar() para o fluxo completo
         return $this->db->execute($sql, [
             'estoque' => $novoEstoque,
             'preco'   => null,
@@ -235,6 +235,28 @@ class Produto
         $result = $this->db->fetchOne($sql);
         $proximo = ($result['ultimo'] ?? 0) + 1;
         return 'PRD-' . str_pad($proximo, 6, '0', STR_PAD_LEFT);
+    }
+
+    // ----------------------------------------------------------------
+    // METODOS AUXILIARES ADICIONADOS PARA ALIMENTAR O CONTROLLER
+    // ----------------------------------------------------------------
+
+    /**
+     * Alimenta a listagem de categorias do formulário
+     */
+    public function listarCategoriasForm(): array
+    {
+        $sql = "SELECT id, nome FROM categorias ORDER BY nome ASC";
+        return $this->db->fetchAll($sql) ?? [];
+    }
+
+    /**
+     * Alimenta a listagem de unidades de medida do formulário
+     */
+    public function listarUnidadesForm(): array
+    {
+        $sql = "SELECT id, nome, sigla FROM unidades ORDER BY nome ASC";
+        return $this->db->fetchAll($sql) ?? [];
     }
 
     // ----------------------------------------------------------------
