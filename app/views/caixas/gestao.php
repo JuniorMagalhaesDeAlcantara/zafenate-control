@@ -240,8 +240,6 @@
 
                 <?= $csrf ?>
 
-
-
                 <input type="hidden" name="caixa_id" value="<?= $caixa['id'] ?>">
 
                 <div style="margin-bottom: 16px;">

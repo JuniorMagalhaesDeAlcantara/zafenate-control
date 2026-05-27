@@ -1699,7 +1699,7 @@
 
         function fecharCaixa() {
             if (carrinho.length && !confirm('Há itens no carrinho. Fechar o caixa mesmo assim?')) return;
-            window.location.href = '/caixa/fechar';
+            window.location.href = '/caixa/gestao';
         }
 
         function abrirSangria() {

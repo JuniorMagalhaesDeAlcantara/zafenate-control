@@ -49,24 +49,40 @@ class Caixa
             throw new \InvalidArgumentException("Caixa não encontrado ou já encerrado.");
         }
 
-        $abertura      = (float) $caixa['saldo_abertura'];
-        $vendas        = (float) ($caixa['total_vendas']      ?? 0);
-        $suprimentos   = (float) ($caixa['total_suprimentos'] ?? 0);
-        $sangrias      = (float) ($caixa['total_sangrias']    ?? 0);
+        // 1. Busque o total de vendas QUE FORAM EM DINHEIRO
+        // Isso evita somar os pagamentos em cartão/pix que não estão na gaveta
+        $sqlVendasDinheiro = "SELECT SUM(valor - troco) as total 
+                          FROM venda_pagamentos vp
+                          JOIN vendas v ON v.id = vp.venda_id
+                          WHERE v.caixa_id = :caixa_id AND vp.forma = 'dinheiro'";
 
-        $saldoEsperado = ($abertura + $suprimentos + $vendas) - $sangrias;
+        $resVendas = $this->db->fetchOne($sqlVendasDinheiro, ['caixa_id' => $caixaId]);
+        $vendasDinheiro = (float) ($resVendas['total'] ?? 0);
+
+        // 2. Agora o cálculo fica correto:
+        // Saldo = Abertura + Suprimentos + Vendas Dinheiro - Sangrias
+        $abertura     = (float) $caixa['saldo_abertura'];
+        $suprimentos  = (float) ($caixa['total_suprimentos'] ?? 0);
+        $sangrias     = (float) ($caixa['total_sangrias'] ?? 0);
+
+        $saldoEsperado = ($abertura + $suprimentos + $vendasDinheiro) - $sangrias;
+
+        // 3. Opcional: Calcular a diferença aqui para salvar no banco
+        $diferenca = (float)$saldoInformado - $saldoEsperado;
 
         $sql = "UPDATE caixas SET
-                    status                = 'fechado',
-                    saldo_esperado        = :esperado,
-                    saldo_informado       = :informado,
-                    observacao_fechamento = :obs,
-                    fechado_em            = NOW()
-                WHERE id = :id";
+                status = 'fechado',
+                saldo_esperado = :esperado,
+                saldo_informado = :informado,
+                diferenca = :dif,
+                observacao_fechamento = :obs,
+                fechado_em = NOW()
+            WHERE id = :id";
 
         return $this->db->execute($sql, [
             'esperado'  => (string) $saldoEsperado,
             'informado' => $saldoInformado,
+            'dif'       => (string) $diferenca,
             'obs'       => $observacao,
             'id'        => $caixaId,
         ]);
@@ -158,5 +174,59 @@ class Caixa
              ORDER BY cm.criado_em DESC",
             ['cid' => $caixaId]
         );
+    }
+
+    // Listar Movimentações de todos os caixas (para relatório)
+    public function listarMovimentacoes(?string $dataInicio = null, ?string $dataFim = null): array
+    {
+        $dataInicio = $dataInicio ?? date('Y-m-01');
+        $dataFim = $dataFim ?? date('Y-m-t');
+
+        return $this->db->fetchAll("
+        SELECT cm.*, u.nome AS usuario_nome
+        FROM caixa_movimentos cm
+        LEFT JOIN usuarios u ON u.id = cm.usuario_id
+        WHERE DATE(cm.criado_em) BETWEEN :inicio AND :fim
+        ORDER BY cm.criado_em DESC
+    ", ['inicio' => $dataInicio, 'fim' => $dataFim]);
+    }
+
+    // Relatório de auditoria de caixas fechados
+    public function listarRelatorioAuditoria(string $inicio, string $fim): array
+    {
+        return $this->db->fetchAll("
+        SELECT 
+            c.*, 
+            u.nome AS operador,
+            (c.saldo_informado - c.saldo_esperado) AS diferenca,
+            CASE 
+                WHEN ABS(c.saldo_informado - c.saldo_esperado) <= 0.50 THEN 'verde'
+                WHEN ABS(c.saldo_informado - c.saldo_esperado) <= 5.00 THEN 'amarelo'
+                ELSE 'vermelho'
+            END AS status_visual
+        FROM caixas c
+        JOIN usuarios u ON c.usuario_id = u.id
+        WHERE c.status = 'fechado' 
+          AND DATE(c.fechado_em) BETWEEN :inicio AND :fim
+        ORDER BY c.fechado_em DESC
+    ", ['inicio' => $inicio, 'fim' => $fim]);
+    }
+
+    // Relatório completo de caixas fechados (para exportação)
+    public function listarRelatorioCompleto(string $inicio, string $fim): array
+    {
+        return $this->db->fetchAll("
+        SELECT 
+            c.id, c.fechado_em, c.saldo_abertura, 
+            c.total_vendas, c.total_sangrias, c.total_suprimentos,
+            c.saldo_esperado, c.saldo_informado,
+            (c.saldo_informado - c.saldo_esperado) AS diferenca,
+            u.nome AS operador
+        FROM caixas c
+        JOIN usuarios u ON c.usuario_id = u.id
+        WHERE c.status = 'fechado' 
+          AND DATE(c.fechado_em) BETWEEN :inicio AND :fim
+        ORDER BY c.fechado_em DESC
+    ", ['inicio' => $inicio, 'fim' => $fim]);
     }
 }

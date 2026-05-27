@@ -29,8 +29,7 @@ $router->get('/logout', 'AuthController@logout');
 // ----------------------------------------------------------------
 // Rotas protegidas (requerem autenticação E proteção CSRF)
 // ----------------------------------------------------------------
-//$router->group(['middleware' => ['auth', 'csrf']], function (Router $r) {
-$router->group(['middleware' => ['auth']], function (Router $r) {
+$router->group(['middleware' => ['auth', 'csrf']], function (Router $r) {
     // Dashboard
     $r->get('/',          'DashboardController@index');
     $r->get('/dashboard', 'DashboardController@index');
@@ -62,6 +61,13 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->post('/clientes/{id}/editar',  'ClienteController@update');
     $r->post('/clientes/{id}/status',  'ClienteController@toggleStatus');
 
+    // ---- Vendas ----
+    $r->get('/vendas',                  'VendaController@index');
+    $r->get('/vendas/relatorio',        'VendaController@relatorio');
+    $r->get('/vendas/{id}',             'VendaController@show');
+    $r->get('/vendas/{id}/cupom',       'VendaController@cupom');
+    $r->post('/vendas/{id}/cancelar',   'VendaController@cancelar');
+
     // ---- Estoque ----
     $r->get('/estoque',               'EstoqueController@index');
     $r->get('/estoque/movimentar',    'EstoqueController@create');
@@ -70,12 +76,12 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
 
     // ---- Caixa ----
     $r->get('/caixa',              'CaixaController@index');
+    $r->get('/caixa/gestao',       'CaixaController@gestao');
+    $r->get('/caixa/sangria',      'CaixaController@sangria');
+    $r->post('/caixa/sangria',     'CaixaController@salvarSangria');
     $r->post('/caixa/abrir',       'CaixaController@abrir');
     $r->post('/caixa/fechar',      'CaixaController@fechar');
-    $r->get('/caixa/sangria',   'CaixaController@sangria');
-    $r->post('/caixa/sangria',  'CaixaController@salvarSangria');
-    $r->get('/caixa/{id}', 'CaixaController@index');
-
+    $r->get('/caixa/{id}',         'CaixaController@index');
 
     // ---- Relatórios ----
     $r->get('/relatorios/estoque',     'RelatorioController@estoque');
