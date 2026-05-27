@@ -1118,9 +1118,9 @@
     </div>
 
 
-    <!-- ── Modal de Pagamento ── -->
+    <!-- ── Modal de Pagamento (misto) ── -->
     <div class="modal-overlay" id="modal-pagamento">
-        <div class="modal">
+        <div class="modal" style="max-width:520px">
             <div class="modal-head">
                 <h3>Finalizar Venda</h3>
                 <button class="modal-close" onclick="fecharModal('modal-pagamento')">
@@ -1129,18 +1129,33 @@
             </div>
             <div class="modal-body">
 
-                <!-- Total a pagar -->
-                <div class="pgto-total-box">
-                    <div>
-                        <div class="pgto-total-label">Total a pagar</div>
-                        <div class="pgto-total-value" id="pgto-total-display">R$ 0,00</div>
+                <!-- Totais do topo -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
+                    <div class="pgto-total-box" style="margin-bottom:0">
+                        <div>
+                            <div class="pgto-total-label">Total a pagar</div>
+                            <div class="pgto-total-value" id="pgto-total-display">R$ 0,00</div>
+                        </div>
+                        <i class="ti ti-receipt" style="font-size:28px;opacity:0.3"></i>
                     </div>
-                    <i class="ti ti-receipt" style="font-size:32px;opacity:0.3"></i>
+                    <div class="pgto-total-box" style="margin-bottom:0;background:var(--bg);border:1px solid var(--border)">
+                        <div>
+                            <div class="pgto-total-label" style="color:var(--text-2)">Restante</div>
+                            <div class="pgto-total-value" id="pgto-restante-display" style="color:var(--text);font-size:22px">R$ 0,00</div>
+                        </div>
+                        <i class="ti ti-coins" style="font-size:24px;opacity:0.2;color:var(--text)"></i>
+                    </div>
                 </div>
 
-                <!-- Formas de pagamento -->
+                <!-- Pagamentos já adicionados -->
+                <div id="pgto-lista" style="display:none;margin-bottom:16px">
+                    <div class="pgto-label" style="margin-bottom:8px">Pagamentos adicionados</div>
+                    <div id="pgto-lista-itens"></div>
+                </div>
+
+                <!-- Adicionar pagamento -->
                 <div class="pgto-label">Forma de pagamento</div>
-                <div class="pgto-formas">
+                <div class="pgto-formas" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
                     <button class="pgto-forma-btn selected" data-forma="dinheiro" onclick="selecionarForma('dinheiro')">
                         <i class="ti ti-cash"></i> Dinheiro
                     </button>
@@ -1155,19 +1170,33 @@
                     </button>
                 </div>
 
+                <!-- Valor do pagamento atual -->
+                <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
+                    <div style="flex:1">
+                        <div class="pgto-label">Valor</div>
+                        <input
+                            type="number"
+                            id="pgto-valor-parcial"
+                            class="pgto-input"
+                            placeholder="0,00"
+                            step="0.01"
+                            min="0.01"
+                            oninput="atualizarTrocoParcial()">
+                    </div>
+                    <button
+                        id="btn-add-pgto"
+                        onclick="adicionarPagamento()"
+                        style="padding:11px 18px;background:var(--primary);color:#fff;border:none;border-radius:6px;
+                               font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;
+                               display:flex;align-items:center;gap:6px;white-space:nowrap;height:46px">
+                        <i class="ti ti-plus"></i> Adicionar
+                    </button>
+                </div>
+
                 <!-- Troco (só dinheiro) -->
                 <div class="pgto-dinheiro-box show" id="pgto-dinheiro-box">
-                    <div class="pgto-label">Valor recebido</div>
-                    <input
-                        type="number"
-                        id="pgto-recebido"
-                        class="pgto-input"
-                        placeholder="0,00"
-                        step="0.01"
-                        min="0"
-                        oninput="calcularTroco()">
                     <div class="pgto-troco-box" id="pgto-troco-box" style="display:none">
-                        <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco</span>
+                        <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco estimado</span>
                         <span class="pgto-troco-value" id="pgto-troco">R$ 0,00</span>
                     </div>
                 </div>
@@ -1177,7 +1206,7 @@
                 <button class="btn-modal btn-modal-cancel" onclick="fecharModal('modal-pagamento')">
                     Cancelar
                 </button>
-                <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()">
+                <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()" disabled>
                     <i class="ti ti-check"></i> Confirmar venda
                 </button>
             </div>
@@ -1193,10 +1222,10 @@
         <input type="hidden" name="itens" id="f-itens" value="">
         <input type="hidden" name="desconto_tipo" id="f-desc-tipo" value="">
         <input type="hidden" name="desconto_valor" id="f-desc-valor" value="0">
+        <input type="hidden" name="subtotal" id="f-subtotal" value="0">
         <input type="hidden" name="total" id="f-total" value="0">
-        <input type="hidden" name="forma_pagamento" id="f-forma" value="dinheiro">
-        <input type="hidden" name="valor_recebido" id="f-recebido" value="0">
-        <input type="hidden" name="troco" id="f-troco" value="0">
+        <!-- pagamentos como JSON array: [{forma, valor, troco}, ...] -->
+        <input type="hidden" name="pagamentos" id="f-pagamentos" value="[]">
     </form>
 
 
@@ -1450,23 +1479,27 @@
             document.getElementById('cart-total').textContent = 'R$ ' + formatMoney(total);
 
             // Atualiza hidden inputs do formulário estruturado do PHP
+            document.getElementById('f-subtotal').value = subtotal.toFixed(2);
             document.getElementById('f-total').value = total.toFixed(2);
             document.getElementById('f-desc-tipo').value = dt;
             document.getElementById('f-desc-valor').value = desconto.toFixed(2);
         }
 
-        /* ─── Modal Pagamento ─── */
+        /* ─── Modal Pagamento (misto) ─── */
+        let pagamentosMisto = []; // [{forma, valor, troco}]
+
         function abrirPagamento() {
             if (!carrinho.length) return;
+            pagamentosMisto = [];
             const total = parseFloat(document.getElementById('f-total').value);
             document.getElementById('pgto-total-display').textContent = 'R$ ' + formatMoney(total);
-            document.getElementById('pgto-recebido').value = '';
+            document.getElementById('pgto-valor-parcial').value = '';
             document.getElementById('pgto-troco-box').style.display = 'none';
+            renderPagamentosMisto();
+            atualizarRestante();
             document.getElementById('modal-pagamento').classList.add('show');
-
-            // Força a seleção inicial em dinheiro limpando travas antigas
             selecionarForma('dinheiro');
-            setTimeout(() => document.getElementById('pgto-recebido').focus(), 100);
+            setTimeout(() => document.getElementById('pgto-valor-parcial').focus(), 100);
         }
 
         function fecharModal(id) {
@@ -1482,43 +1515,145 @@
             const dinheiroBox = document.getElementById('pgto-dinheiro-box');
             if (forma === 'dinheiro') {
                 dinheiroBox.classList.add('show');
-                calcularTroco(); // Valida o botão baseado no valor digitado
             } else {
                 dinheiroBox.classList.remove('show');
-                document.getElementById('btn-confirmar-pgto').disabled = false; // Libera direto para Pix/Cartão
+                document.getElementById('pgto-troco-box').style.display = 'none';
+            }
+            // Preenche o campo com o restante automaticamente
+            const restante = calcularRestante();
+            if (restante > 0) {
+                document.getElementById('pgto-valor-parcial').value = restante.toFixed(2);
+            }
+            atualizarTrocoParcial();
+        }
+
+        function calcularRestante() {
+            const total = parseFloat(document.getElementById('f-total').value) || 0;
+            const pago = pagamentosMisto.reduce((s, p) => s + p.valor, 0);
+            return Math.max(total - pago, 0);
+        }
+
+        function atualizarRestante() {
+            const restante = calcularRestante();
+            document.getElementById('pgto-restante-display').textContent = 'R$ ' + formatMoney(restante);
+            const btnConf = document.getElementById('btn-confirmar-pgto');
+            btnConf.disabled = restante > 0.001 || pagamentosMisto.length === 0;
+        }
+
+        function atualizarTrocoParcial() {
+            if (formaPgto !== 'dinheiro') return;
+            const restante = calcularRestante();
+            const valor = parseFloat(document.getElementById('pgto-valor-parcial').value) || 0;
+            const trocoBox = document.getElementById('pgto-troco-box');
+            const trocoVal = document.getElementById('pgto-troco');
+            if (valor > restante + 0.001) {
+                const troco = valor - restante;
+                trocoVal.textContent = 'R$ ' + formatMoney(troco);
+                trocoBox.style.display = 'flex';
+            } else {
+                trocoBox.style.display = 'none';
             }
         }
 
-        function calcularTroco() {
-            const total = parseFloat(document.getElementById('f-total').value) || 0;
-            const recebido = parseFloat(document.getElementById('pgto-recebido').value) || 0;
-            const trocoBox = document.getElementById('pgto-troco-box');
-            const trocoVal = document.getElementById('pgto-troco');
-            const btnConf = document.getElementById('btn-confirmar-pgto');
-
-            if (formaPgto === 'dinheiro') {
-                btnConf.disabled = recebido < total;
-                if (recebido >= total) {
-                    const troco = recebido - total;
-                    trocoVal.textContent = 'R$ ' + formatMoney(troco);
-                    trocoBox.style.display = 'flex';
-                    document.getElementById('f-troco').value = troco.toFixed(2);
-                    document.getElementById('f-recebido').value = recebido.toFixed(2);
-                } else {
-                    trocoBox.style.display = 'none';
-                    document.getElementById('f-troco').value = '0.00';
-                    document.getElementById('f-recebido').value = '0.00';
-                }
+        function adicionarPagamento() {
+            const valorInput = parseFloat(document.getElementById('pgto-valor-parcial').value) || 0;
+            if (valorInput <= 0) {
+                alert('Informe um valor válido.');
+                document.getElementById('pgto-valor-parcial').focus();
+                return;
             }
+            const restante = calcularRestante();
+            if (restante <= 0.001) {
+                alert('O total já está coberto pelos pagamentos adicionados.');
+                return;
+            }
+
+            let troco = 0;
+            let valorEfetivo = valorInput;
+
+            if (formaPgto === 'dinheiro' && valorInput > restante + 0.001) {
+                troco = parseFloat((valorInput - restante).toFixed(2));
+                valorEfetivo = valorInput; // registra o que foi recebido; troco será devolvido
+            } else {
+                // Para cartão/pix, não pode receber mais do que o restante
+                valorEfetivo = Math.min(valorInput, restante);
+            }
+
+            pagamentosMisto.push({
+                forma: formaPgto,
+                valor: valorEfetivo,
+                troco
+            });
+            document.getElementById('pgto-valor-parcial').value = '';
+            document.getElementById('pgto-troco-box').style.display = 'none';
+            renderPagamentosMisto();
+            atualizarRestante();
+
+            // Preenche automaticamente o restante para agilizar
+            const novoRestante = calcularRestante();
+            if (novoRestante > 0.001) {
+                document.getElementById('pgto-valor-parcial').value = novoRestante.toFixed(2);
+                document.getElementById('pgto-valor-parcial').focus();
+                document.getElementById('pgto-valor-parcial').select();
+            }
+        }
+
+        function removerPagamento(idx) {
+            pagamentosMisto.splice(idx, 1);
+            renderPagamentosMisto();
+            atualizarRestante();
+            const restante = calcularRestante();
+            if (restante > 0.001) {
+                document.getElementById('pgto-valor-parcial').value = restante.toFixed(2);
+            }
+        }
+
+        function renderPagamentosMisto() {
+            const lista = document.getElementById('pgto-lista');
+            const container = document.getElementById('pgto-lista-itens');
+
+            if (!pagamentosMisto.length) {
+                lista.style.display = 'none';
+                return;
+            }
+
+            lista.style.display = 'block';
+            const nomes = {
+                dinheiro: '💵 Dinheiro',
+                pix: '📱 PIX',
+                cartao_debito: '💳 Débito',
+                cartao_credito: '💳 Crédito'
+            };
+            container.innerHTML = pagamentosMisto.map((p, i) => `
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                            padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;gap:8px">
+                    <span style="font-size:13px;font-weight:500">${nomes[p.forma] ?? p.forma}</span>
+                    <span style="font-size:13px;font-weight:600;margin-left:auto">R$ ${formatMoney(p.valor)}</span>
+                    ${p.troco > 0 ? `<span style="font-size:11px;color:var(--green)">(troco R$ ${formatMoney(p.troco)})</span>` : ''}
+                    <button onclick="removerPagamento(${i})"
+                        style="background:none;border:none;cursor:pointer;color:var(--text-3);
+                               font-size:14px;padding:2px 4px;transition:color 0.12s"
+                        onmouseover="this.style.color='var(--red)'"
+                        onmouseout="this.style.color='var(--text-3)'">
+                        <i class="ti ti-x"></i>
+                    </button>
+                </div>
+            `).join('');
         }
 
         function confirmarVenda() {
             if (!carrinho.length) return;
+            if (calcularRestante() > 0.001) {
+                alert('Ainda há saldo restante a pagar.');
+                return;
+            }
 
             document.getElementById('f-cliente-id').value = document.getElementById('cart-cliente').value;
-            document.getElementById('f-forma').value = formaPgto;
+            document.getElementById('f-pagamentos').value = JSON.stringify(pagamentosMisto);
 
-            // Envia todos os campos que Venda.php precisa (incluindo codigo, preco_custo, unidade_sigla)
+            const subtotal = carrinho.reduce((s, i) => s + (i.preco * i.qty), 0);
+            document.getElementById('f-subtotal').value = subtotal.toFixed(2);
+
             document.getElementById('f-itens').value = JSON.stringify(carrinho.map(i => ({
                 id: i.id,
                 nome: i.nome,
@@ -1528,11 +1663,6 @@
                 codigo: i.codigo || 'SEM_COD',
                 unidade_sigla: i.unidade_sigla || 'UN',
             })));
-
-            if (formaPgto !== 'dinheiro') {
-                document.getElementById('f-recebido').value = document.getElementById('f-total').value;
-                document.getElementById('f-troco').value = '0.00';
-            }
 
             document.getElementById('btn-confirmar-pgto').disabled = true;
             document.getElementById('btn-confirmar-pgto').innerHTML = '<i class="ti ti-loader"></i> Processando...';

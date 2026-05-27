@@ -93,7 +93,8 @@
 
         .container-abertura {
             max-width: 460px;
-            margin: 80px auto padding: 0 20px;
+            margin: 80px auto;
+            padding: 0 20px;
         }
 
         .card-abertura {

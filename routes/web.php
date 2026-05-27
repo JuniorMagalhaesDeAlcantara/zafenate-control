@@ -72,7 +72,10 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/caixa',              'CaixaController@index');
     $r->post('/caixa/abrir',       'CaixaController@abrir');
     $r->post('/caixa/fechar',      'CaixaController@fechar');
+    $r->get('/caixa/sangria',   'CaixaController@sangria');
+    $r->post('/caixa/sangria',  'CaixaController@salvarSangria');
     $r->get('/caixa/{id}', 'CaixaController@index');
+
 
     // ---- Relatórios ----
     $r->get('/relatorios/estoque',     'RelatorioController@estoque');

@@ -131,11 +131,44 @@ class PdvController extends Controller
             $clienteId = (int) $request->input('cliente_id', 0) ?: null;
             $usuarioId = (int) Session::get('usuario_id');
 
-            $pagamentos = [[
-                'forma' => $request->input('forma_pagamento', 'dinheiro'),
-                'valor' => $total,
-                'troco' => (float) $request->input('troco', 0),
-            ]];
+            // Suporta pagamento misto: array JSON de {forma, valor, troco}
+            $pagamentosRaw = json_decode($request->input('pagamentos', '[]'), true);
+
+            if (empty($pagamentosRaw) || !is_array($pagamentosRaw)) {
+                Session::flash('error', 'Nenhum pagamento informado.');
+                $this->redirect('/pdv');
+                return;
+            }
+
+            $formasValidas = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito'];
+            $pagamentos    = [];
+            $totalPago     = 0.0;
+
+            foreach ($pagamentosRaw as $p) {
+                $forma = $p['forma'] ?? '';
+                $valor = (float) ($p['valor'] ?? 0);
+                $troco = (float) ($p['troco'] ?? 0);
+
+                if (!in_array($forma, $formasValidas, true) || $valor <= 0) {
+                    Session::flash('error', "Pagamento inválido: forma ou valor incorreto.");
+                    $this->redirect('/pdv');
+                    return;
+                }
+
+                $pagamentos[] = ['forma' => $forma, 'valor' => $valor, 'troco' => $troco];
+                $totalPago   += $valor - $troco; // valor líquido recebido
+            }
+
+            // Validação: total pago (líquido) deve cobrir o total da venda
+            if (round($totalPago, 2) < round($total, 2)) {
+                Session::flash('error', sprintf(
+                    'Total pago (R$ %.2f) inferior ao total da venda (R$ %.2f).',
+                    $totalPago,
+                    $total
+                ));
+                $this->redirect('/pdv');
+                return;
+            }
 
             $this->vendaModel->salvarVenda(
                 dados: [

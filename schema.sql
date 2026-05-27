@@ -406,4 +406,25 @@ ON DUPLICATE KEY UPDATE chave = chave;
  
  
 SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE IF NOT EXISTS caixa_movimentos (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    caixa_id   INT UNSIGNED NOT NULL,
+    usuario_id INT UNSIGNED NULL,
+    tipo       ENUM('suprimento','sangria') NOT NULL,
+    valor      DECIMAL(10,2) NOT NULL,
+    observacao VARCHAR(255)  NULL,
+    criado_em  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ 
+    CONSTRAINT fk_cmov_caixa
+        FOREIGN KEY (caixa_id) REFERENCES caixas(id)
+        ON UPDATE CASCADE,
+ 
+    CONSTRAINT fk_cmov_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Sangrias e suprimentos do caixa';
+ 
+CREATE INDEX IF NOT EXISTS idx_cmov_caixa ON caixa_movimentos(caixa_id);
  

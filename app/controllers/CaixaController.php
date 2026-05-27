@@ -19,7 +19,7 @@ class CaixaController extends Controller
             exit;
         }
         $this->caixaModel = new CaixaModel();
-        $this->usuarioId = (int)Session::get('usuario_id');
+        $this->usuarioId  = (int) Session::get('usuario_id');
     }
 
     /**
@@ -33,16 +33,18 @@ class CaixaController extends Controller
         if (!$caixa) {
             $this->view('caixas/abrir', [
                 'title' => 'Abrir Caixa - Zafenate Control',
-                'csrf'  => csrf_field() // Garante o token também na abertura
+                'csrf'  => csrf_field(),
             ]);
             return;
         }
 
-        // AQUI ESTÁ O AJUSTE: Passamos o token para a view de gestão
+        $movimentos = $this->caixaModel->movimentos($caixa['id']);
+
         $this->view('caixas/gestao', [
-            'title' => 'Gestão do Caixa - Zafenate Control',
-            'caixa' => $caixa,
-            'csrf'  => csrf_field() // Esta é a variável que o seu HTML vai usar
+            'title'      => 'Gestão do Caixa - Zafenate Control',
+            'caixa'      => $caixa,
+            'movimentos' => $movimentos,
+            'csrf'       => csrf_field(),
         ]);
     }
 
@@ -64,22 +66,19 @@ class CaixaController extends Controller
 
             Session::flash('success', 'Caixa aberto com sucesso!');
             $this->redirect('/caixa');
-            return;
         } catch (\Exception $e) {
             Session::flash('error', 'Erro ao abrir caixa: ' . $e->getMessage());
             $this->redirect('/caixa');
-            return;
         }
     }
 
     /**
      * POST /caixa/fechar
-     * Processa o fechamento do caixa atual
      */
     public function fechar(Request $request): void
     {
         try {
-            $caixaId = (int)$request->input('caixa_id');
+            $caixaId = (int) $request->input('caixa_id');
 
             $saldoInformado = $request->input('saldo_informado', '0,00');
             $saldoInformado = str_replace(['.', ','], ['', '.'], $saldoInformado);
@@ -94,11 +93,76 @@ class CaixaController extends Controller
 
             Session::flash('success', 'Caixa fechado com sucesso! Relatório atualizado.');
             $this->redirect('/caixa');
-            return;
         } catch (\Exception $e) {
             Session::flash('error', 'Erro ao fechar caixa: ' . $e->getMessage());
             $this->redirect('/caixa');
+        }
+    }
+
+    /**
+     * GET /caixa/sangria
+     * Carrega a tela (view) de sangria
+     */
+    // No seu CaixaController.php, método sangria():
+    public function sangria(): void
+    {
+        $caixa = $this->caixaModel->buscarAbertoPorUsuario($this->usuarioId);
+
+        if (!$caixa) {
+            Session::flash('error', 'Nenhum caixa aberto.');
+            $this->redirect('/caixa');
             return;
+        }
+
+        // Passamos o array $caixa para a view
+        $this->view('caixas/sangria', [
+            'title'    => 'Realizar Sangria',
+            'caixa'    => $caixa, // <--- O erro morre aqui
+            'caixa_id' => $caixa['id']
+        ]);
+    }
+
+    /**
+     * POST /caixa/sangria
+     * Processa a lógica de salvamento
+     */
+    public function salvarSangria(Request $request): void
+    {
+        try {
+            $caixaId = (int) $request->input('caixa_id');
+
+            if (!$caixaId) {
+                throw new \InvalidArgumentException("ID do caixa não fornecido.");
+            }
+
+            // Converte "1.234,56" → 1234.56
+            $valorRaw = $request->input('valor', '0,00');
+            $valor    = (float) str_replace(['.', ','], ['', '.'], $valorRaw);
+
+            if ($valor <= 0) {
+                throw new \InvalidArgumentException("Informe um valor maior que zero para a sangria.");
+            }
+
+            $motivo = trim($request->input('motivo', ''));
+            if (strlen($motivo) < 3) {
+                throw new \InvalidArgumentException("O motivo é obrigatório (mínimo 3 caracteres).");
+            }
+
+            $this->caixaModel->registrarSangria($caixaId, $valor, $motivo, $this->usuarioId);
+
+            Session::flash('success', sprintf(
+                'Sangria de R$ %s registrada com sucesso.',
+                number_format($valor, 2, ',', '.')
+            ));
+
+            $this->redirect('/caixa/sangria');
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            Session::flash('error', $e->getMessage());
+            $this->redirect('/caixa/sangria'); // Volta para a tela de sangria em caso de erro
+        } catch (\Throwable $e) {
+            error_log('[Caixa] Erro na sangria: ' . $e->getMessage());
+            Session::flash('error', 'Erro interno ao registrar sangria. Tente novamente.');
+            $this->redirect('/caixa/sangria');
         }
     }
 }
