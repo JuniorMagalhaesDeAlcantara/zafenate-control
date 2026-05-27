@@ -1,7 +1,6 @@
 <?php
 // 🌟 LÓGICA DE SEGURANÇA: Se o Controller não mandou $config, tentamos puxar do contêiner do sistema, banco ou sessão
 if (empty($config)) {
-    // Caso use um Helper global ou classe de configuração (ajuste se seu framework usar outro nome):
     $config = function_exists('config') ? config() : ($_SESSION['config'] ?? []);
 }
 ?>
@@ -50,6 +49,13 @@ if (empty($config)) {
         <a href="/vendas" class="zf-nav-item <?= active('vendas') ?>">
             <i class="ti ti-receipt"></i>
             Vendas
+            <span class="zf-nav-dot"></span>
+        </a>
+
+        <!-- ✅ NOVO: Estoque -->
+        <a href="/estoque" class="zf-nav-item <?= active('estoque') ?>">
+            <i class="ti ti-packages"></i>
+            Estoque
             <span class="zf-nav-dot"></span>
         </a>
 

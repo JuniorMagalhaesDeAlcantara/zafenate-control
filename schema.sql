@@ -427,4 +427,36 @@ CREATE TABLE IF NOT EXISTS caixa_movimentos (
   COMMENT='Sangrias e suprimentos do caixa';
  
 CREATE INDEX IF NOT EXISTS idx_cmov_caixa ON caixa_movimentos(caixa_id);
+
+-- ============================================================
+-- Migration: 003_estoque_tipos_ampliados.sql
+-- Amplia os ENUMs de tipo e motivo para suportar
+-- CANCELAMENTO e PERDA na tela de movimentação manual.
+-- ============================================================
+
+ALTER TABLE movimentacoes_estoque
+    MODIFY COLUMN tipo ENUM(
+        'ENTRADA',
+        'SAIDA',
+        'AJUSTE'
+    ) NOT NULL;
+
+-- Motivo já contém PERDA e DEVOLUCAO (=cancelamento); adicionamos
+-- CANCELAMENTO_VENDA como alias explícito e AVARIA para clareza.
+ALTER TABLE movimentacoes_estoque
+    MODIFY COLUMN motivo ENUM(
+        'COMPRA',
+        'DEVOLUCAO',
+        'VENDA',
+        'CANCELAMENTO_VENDA',
+        'PERDA',
+        'AVARIA',
+        'USO_INTERNO',
+        'AJUSTE_MANUAL',
+        'INVENTARIO',
+        'TRANSFERENCIA'
+    ) NOT NULL;
+
+-- Índice de período (muito usado nos filtros de listagem)
+CREATE INDEX IF NOT EXISTS idx_mov_criado ON movimentacoes_estoque(criado_em);
  

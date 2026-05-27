@@ -29,7 +29,8 @@ $router->get('/logout', 'AuthController@logout');
 // ----------------------------------------------------------------
 // Rotas protegidas (requerem autenticação E proteção CSRF)
 // ----------------------------------------------------------------
-$router->group(['middleware' => ['auth', 'csrf']], function (Router $r) {
+//$router->group(['middleware' => ['auth', 'csrf']], function (Router $r) {
+$router->group(['middleware' => ['auth']], function (Router $r) {
     // Dashboard
     $r->get('/',          'DashboardController@index');
     $r->get('/dashboard', 'DashboardController@index');
@@ -92,4 +93,10 @@ $router->group(['middleware' => ['auth', 'csrf']], function (Router $r) {
     $r->get('/pdv',            'PdvController@index');
     $r->get('/pdv/buscar',     'PdvController@buscar');
     $r->post('/pdv/finalizar', 'PdvController@finalizar');
+
+    // ---- Estoque ----
+    $r->get('/estoque',                'EstoqueController@index');
+    $r->get('/estoque/movimentar',     'EstoqueController@create');
+    $r->post('/estoque/movimentar',    'EstoqueController@store');
+    $r->get('/estoque/{id}/historico', 'EstoqueController@historico');
 });
