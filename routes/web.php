@@ -93,6 +93,7 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/pdv',            'PdvController@index');
     $r->get('/pdv/buscar',     'PdvController@buscar');
     $r->post('/pdv/finalizar', 'PdvController@finalizar');
+    $r->get('/pdv/buscar-rapido', 'PdvController@buscarRapidoEndpoint');
 
     // ---- Estoque ----
     $r->get('/estoque',                'EstoqueController@index');

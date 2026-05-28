@@ -7,12 +7,13 @@ use App\Core\Request;
 use App\Core\Session;
 use App\Core\Database;
 use App\Models\Venda as VendaModel;
+use App\Models\Cliente as ClienteModel;
 
 class PdvController extends Controller
 {
     private Database $db;
     private VendaModel $vendaModel;
-
+    private ClienteModel $clienteModel;
     public function __construct()
     {
         if (!Session::get('usuario_id')) {
@@ -20,6 +21,7 @@ class PdvController extends Controller
         }
         $this->db         = Database::getInstance();
         $this->vendaModel = new VendaModel();
+        $this->clienteModel = new ClienteModel();
     }
 
     // ----------------------------------------------------------------
@@ -128,7 +130,15 @@ class PdvController extends Controller
                 : 0.00;
 
             $caixaId   = (int) $request->input('caixa_id');
-            $clienteId = (int) $request->input('cliente_id', 0) ?: null;
+            $clienteIdInput = $request->input('cliente_id');
+
+            error_log('CLIENTE INPUT RAW: ' . print_r($clienteIdInput, true));
+
+            $clienteId = !empty($clienteIdInput)
+                ? (int) $clienteIdInput
+                : null;
+
+            error_log('CLIENTE FINAL: ' . print_r($clienteId, true));
             $usuarioId = (int) Session::get('usuario_id');
 
             // Suporta pagamento misto: array JSON de {forma, valor, troco}
@@ -159,6 +169,9 @@ class PdvController extends Controller
                 $totalPago   += $valor - $troco; // valor líquido recebido
             }
 
+            error_log(print_r([
+                'cliente_id_antes_salvar' => $clienteId
+            ], true));
             // Validação: total pago (líquido) deve cobrir o total da venda
             if (round($totalPago, 2) < round($total, 2)) {
                 Session::flash('error', sprintf(
@@ -169,6 +182,7 @@ class PdvController extends Controller
                 $this->redirect('/pdv');
                 return;
             }
+
 
             $this->vendaModel->salvarVenda(
                 dados: [
@@ -198,5 +212,16 @@ class PdvController extends Controller
                 : 'Erro interno ao processar venda. Tente novamente.');
             $this->redirect('/pdv');
         }
+    }
+
+    public function buscarRapidoEndpoint()
+    {
+        $termo = $_GET['termo'] ?? '';
+        // Chama a função que você me mostrou
+        $clientes = $this->clienteModel->buscarRapido($termo);
+
+        header('Content-Type: application/json');
+        echo json_encode($clientes);
+        exit;
     }
 }

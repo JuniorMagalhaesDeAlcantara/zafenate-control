@@ -466,6 +466,21 @@
             border-color: var(--border-md);
         }
 
+        /* Força o input a ocupar o espaço total */
+        #busca-cliente {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--card);
+            font-size: 13px;
+            outline: none;
+        }
+
+        #busca-cliente:focus {
+            border-color: var(--primary);
+        }
+
         /* Lista de itens */
         .cart-items {
             flex: 1;
@@ -1058,13 +1073,25 @@
 
             <!-- Cliente -->
             <div class="cart-cliente">
-                <i class="ti ti-user" style="font-size:15px;color:var(--text-3)"></i>
-                <select class="cart-cliente-select" id="cart-cliente">
-                    <option value="1">Consumidor Final</option>
-                    <?php foreach ($clientes as $c): ?>
-                        <option value="<?= $c['id'] ?>"><?= e($c['nome']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+
+                <i class="ti ti-user"
+                    style="font-size:15px;color:var(--text-3)"></i>
+
+                <div style="width: 100%; position: relative;">
+
+                    <input
+                        type="text"
+                        id="busca-cliente"
+                        class="cart-cliente-select"
+                        placeholder="Buscar cliente..."
+                        autocomplete="off">
+
+                    <div
+                        class="pdv-results"
+                        id="cliente-results"
+                        style="top:100%;left:0;right:0;"></div>
+
+                </div>
             </div>
 
             <!-- Itens do carrinho -->
@@ -1328,7 +1355,7 @@
             divResults.classList.add('show');
         }
 
-        /* ─── Adicionar item ─── */
+
         /* ─── Adicionar item ─── */
         function addItem(produto) {
             if (typeof produto !== 'object' || produto === null) return;
@@ -1648,7 +1675,16 @@
                 return;
             }
 
-            document.getElementById('f-cliente-id').value = document.getElementById('cart-cliente').value;
+            const campoId = document.getElementById('f-cliente-id');
+            const clienteIdFinal = campoId.value; // Pega o valor real (que deve ser o id do cliente selecionado)
+
+            console.log('INPUT HIDDEN:', document.getElementById('f-cliente-id'));
+            console.log('VALOR:', document.getElementById('f-cliente-id').value);
+
+            console.log("ID do cliente enviado para o form:", clienteIdFinal);
+
+            // Agora, antes de enviar o form, certifique-se de que o input oculto esteja com esse ID
+            document.getElementById('f-cliente-id').value = clienteIdFinal;
             document.getElementById('f-pagamentos').value = JSON.stringify(pagamentosMisto);
 
             const subtotal = carrinho.reduce((s, i) => s + (i.preco * i.qty), 0);
@@ -1705,6 +1741,127 @@
         function abrirSangria() {
             window.location.href = '/caixa/sangria';
         }
+
+        // --- Busca de Clientes ---
+        const inputBuscaCliente = document.getElementById('busca-cliente');
+        const inputClienteId = document.getElementById('f-cliente-id');
+        const clienteResults = document.getElementById('cliente-results');
+
+        const CLIENTE_PADRAO_ID = '1';
+        const CLIENTE_PADRAO_NOME = 'Consumidor Final';
+
+        // Inicialização
+        window.addEventListener('DOMContentLoaded', () => {
+
+            inputBuscaCliente.value = CLIENTE_PADRAO_NOME;
+            inputClienteId.value = CLIENTE_PADRAO_ID;
+        });
+
+        // Ao focar no campo
+        inputBuscaCliente.addEventListener('focus', function() {
+
+            // Se estiver no cliente padrão, limpa automaticamente
+            if (this.value === CLIENTE_PADRAO_NOME) {
+
+                this.value = '';
+            }
+        });
+
+        // Busca
+        inputBuscaCliente.addEventListener('input', function() {
+
+            const termo = this.value.trim();
+
+            // Se apagar tudo
+            if (termo === '') {
+
+                clienteResults.classList.remove('show');
+                return;
+            }
+
+            // Busca mínima
+            if (termo.length < 2) {
+
+                clienteResults.classList.remove('show');
+                return;
+            }
+
+            fetch(`/pdv/buscar-rapido?termo=${encodeURIComponent(termo)}`)
+                .then(res => res.json())
+                .then(data => {
+
+                    clienteResults.innerHTML = '';
+
+                    if (!data.length) {
+
+                        clienteResults.innerHTML =
+                            '<div class="pdv-result-empty">Cliente não encontrado</div>';
+
+                    } else {
+
+                        data.forEach(c => {
+
+                            const div = document.createElement('div');
+
+                            div.className = 'pdv-result-item';
+
+                            div.innerHTML = `
+                            <div>
+                                <strong>${c.nome}</strong>
+                            </div>
+                        `;
+
+                            // IMPORTANTE: usar mousedown
+                            div.onmousedown = function(e) {
+
+                                e.preventDefault();
+
+                                inputBuscaCliente.value = c.nome;
+                                inputClienteId.value = c.id;
+
+                                clienteResults.classList.remove('show');
+                            };
+
+                            clienteResults.appendChild(div);
+                        });
+                    }
+
+                    clienteResults.classList.add('show');
+                })
+                .catch(err => {
+
+                    console.error(err);
+                });
+        });
+
+        // Ao sair do campo
+        inputBuscaCliente.addEventListener('blur', function() {
+
+            setTimeout(() => {
+
+                // Se não selecionou nada
+                if (this.value.trim() === '') {
+
+                    this.value = CLIENTE_PADRAO_NOME;
+                    inputClienteId.value = CLIENTE_PADRAO_ID;
+                }
+
+                clienteResults.classList.remove('show');
+
+            }, 150);
+        });
+
+        // Fecha lista clicando fora
+        document.addEventListener('click', function(e) {
+
+            if (
+                !clienteResults.contains(e.target) &&
+                e.target !== inputBuscaCliente
+            ) {
+
+                clienteResults.classList.remove('show');
+            }
+        });
     </script>
 
 </body>

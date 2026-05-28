@@ -459,4 +459,39 @@ ALTER TABLE movimentacoes_estoque
 
 -- Índice de período (muito usado nos filtros de listagem)
 CREATE INDEX IF NOT EXISTS idx_mov_criado ON movimentacoes_estoque(criado_em);
+
+-- ============================================================
+-- Migration: 004_clientes_ampliado.sql
+-- Amplia a tabela clientes com campos para PF/PJ,
+-- dados comerciais e integração futura com PDV/NF-e
+-- ============================================================
+
+ALTER TABLE clientes
+    ADD COLUMN IF NOT EXISTS tipo_pessoa    ENUM('fisica','juridica') NOT NULL DEFAULT 'fisica'
+        COMMENT 'Tipo de pessoa para NF-e e relatórios'
+        AFTER nome,
+
+    ADD COLUMN IF NOT EXISTS nome_fantasia  VARCHAR(150) NULL
+        COMMENT 'Nome fantasia (PJ) ou apelido (PF)'
+        AFTER tipo_pessoa,
+
+    ADD COLUMN IF NOT EXISTS ie             VARCHAR(20) NULL
+        COMMENT 'Inscrição Estadual (PJ)'
+        AFTER cpf_cnpj,
+
+    ADD COLUMN IF NOT EXISTS data_nascimento DATE NULL
+        COMMENT 'Data de nascimento (PF) ou fundação (PJ)'
+        AFTER ie,
+
+    ADD COLUMN IF NOT EXISTS contato        VARCHAR(100) NULL
+        COMMENT 'Nome do contato secundário (PJ)'
+        AFTER celular,
+
+    ADD COLUMN IF NOT EXISTS limite_credito DECIMAL(10,2) NOT NULL DEFAULT 0.00
+        COMMENT 'Limite de crédito para vendas a prazo'
+        AFTER observacoes;
+
+-- Índice útil para busca por aniversariantes (relatórios)
+CREATE INDEX IF NOT EXISTS idx_cli_nascimento ON clientes(data_nascimento);
+CREATE INDEX IF NOT EXISTS idx_cli_tipo       ON clientes(tipo_pessoa);
  
