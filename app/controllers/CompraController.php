@@ -26,14 +26,14 @@ class CompraController extends Controller
     // LISTAGEM
     // ----------------------------------------------------------------
 
-    public function index(): void
+    public function index(Request $request): void
     {
         $filtros = [
-            'busca'         => $_GET['busca']         ?? '',
-            'status'        => $_GET['status']        ?? '',
-            'fornecedor_id' => $_GET['fornecedor_id'] ?? '',
-            'de'            => $_GET['de']            ?? '',
-            'ate'           => $_GET['ate']           ?? '',
+            'busca'         => $request->query('busca', ''),
+            'status'        => $request->query('status', ''),
+            'fornecedor_id' => $request->query('fornecedor_id', ''),
+            'de'            => $request->query('de', ''),
+            'ate'           => $request->query('ate', ''),
         ];
 
         $compras      = $this->compraModel->listar($filtros);
@@ -62,7 +62,7 @@ class CompraController extends Controller
     // NOVA COMPRA — Formulário
     // ----------------------------------------------------------------
 
-    public function create(): void
+    public function create(Request $request): void
     {
         $fornecedores = $this->db->fetchAll(
             "SELECT id, razao_social, nome_fantasia, prazo_pagamento, forma_pagamento
@@ -102,10 +102,8 @@ class CompraController extends Controller
     // SALVAR RASCUNHO (POST /compras/criar)
     // ----------------------------------------------------------------
 
-    public function store(): void
+    public function store(Request $request): void
     {
-        $request = new Request();
-
         try {
             $dados = [
                 'fornecedor_id'   => (int)$request->input('fornecedor_id'),
@@ -146,7 +144,7 @@ class CompraController extends Controller
     // DETALHE / VISUALIZAÇÃO
     // ----------------------------------------------------------------
 
-    public function show(string $id): void
+    public function show(Request $request, string $id): void
     {
         $compra = $this->compraModel->buscarPorId((int)$id);
 
@@ -172,7 +170,7 @@ class CompraController extends Controller
     // EDITAR — Formulário (GET /compras/{id}/editar)
     // ----------------------------------------------------------------
 
-    public function edit(string $id): void
+    public function edit(Request $request, string $id): void
     {
         $compra = $this->compraModel->buscarPorId((int)$id);
 
@@ -231,10 +229,8 @@ class CompraController extends Controller
     // SALVAR EDIÇÃO (POST /compras/{id}/editar)
     // ----------------------------------------------------------------
 
-    public function update(string $id): void
+    public function update(Request $request, string $id): void
     {
-        $request = new Request();
-
         try {
             $compra = $this->compraModel->buscarPorId((int)$id);
 
@@ -285,7 +281,7 @@ class CompraController extends Controller
     // CONFIRMAR → atualiza estoque (POST /compras/{id}/confirmar)
     // ----------------------------------------------------------------
 
-    public function confirmar(string $id): void
+    public function confirmar(Request $request, string $id): void
     {
         try {
             $usuarioId = (int)Session::get('usuario_id');
@@ -302,10 +298,8 @@ class CompraController extends Controller
     // CANCELAR (POST /compras/{id}/cancelar)
     // ----------------------------------------------------------------
 
-    public function cancelar(string $id): void
+    public function cancelar(Request $request, string $id): void
     {
-        $request = new Request();
-
         try {
             $motivo    = $request->input('motivo') ?: 'Cancelado pelo usuário.';
             $estornar  = (bool)$request->input('estornar');
@@ -325,9 +319,9 @@ class CompraController extends Controller
     // BUSCA RÁPIDA DE PRODUTO (JSON — autocomplete)
     // ----------------------------------------------------------------
 
-    public function buscarProduto(): void
+    public function buscarProduto(Request $request): void
     {
-        $q = trim($_GET['q'] ?? '');
+        $q = trim($request->query('q', ''));
 
         if ($q === '') {
             $this->json(['produtos' => []]);
