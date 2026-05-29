@@ -1,10 +1,5 @@
 <?php require VIEW_PATH . '/layouts/header.php'; ?>
 
-<?php
-$oldOrCompra = fn($campo, $default = '') =>
-old($campo, $compra[$campo] ?? $default);
-?>
-
 <div class="zf-layout">
 
     <?php require VIEW_PATH . '/layouts/sidebar.php'; ?>

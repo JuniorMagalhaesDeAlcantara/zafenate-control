@@ -39,7 +39,10 @@ class Venda
 
                 // Lock para evitar race condition
                 $snap = $this->db->fetchOne(
-                    "SELECT estoque_atual FROM produtos WHERE id = :id FOR UPDATE",
+                    "SELECT estoque_atual, preco_custo
+                        FROM produtos
+                        WHERE id = :id
+                        FOR UPDATE",
                     ['id' => $item['id']]
                 );
 
@@ -72,7 +75,7 @@ class Venda
                     'unidade_sigla'  => $item['unidade_sigla'] ?? 'UN',
                     'quantidade'     => $item['qty'],
                     'preco_unitario' => $item['preco'],
-                    'preco_custo'    => $item['preco_custo']   ?? 0.00,
+                    'preco_custo' => $snap['preco_custo'] ?? 0.00,
                     'subtotal'       => round($item['qty'] * $item['preco'], 2),
                 ]);
 
