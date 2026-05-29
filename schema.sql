@@ -568,4 +568,103 @@ ALTER TABLE fornecedores
 
 -- Índice para busca por tipo
 CREATE INDEX IF NOT EXISTS idx_forn_tipo ON fornecedores(tipo_pessoa);
+
+-- ============================================================
+-- ZAFENATE CONTROL — Migration 06: Módulo de Compras
+-- Depende de: fornecedores, produtos, usuarios
+-- ============================================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET NAMES utf8mb4;
+
+-- ============================================================
+-- COMPRAS (cabeçalho)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS compras (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    fornecedor_id   INT UNSIGNED NOT NULL,
+    usuario_id      INT UNSIGNED NOT NULL,
+
+    numero          VARCHAR(20)  NOT NULL COMMENT 'Número sequencial interno CMP-000001',
+    numero_nf       VARCHAR(20)  NULL     COMMENT 'Número da Nota Fiscal do fornecedor',
+    serie_nf        VARCHAR(5)   NULL,
+
+    status          ENUM('rascunho','confirmada','cancelada') NOT NULL DEFAULT 'rascunho',
+
+    -- Totais
+    subtotal        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    desconto_valor  DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    frete           DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total           DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+
+    -- Pagamento
+    forma_pagamento ENUM('boleto','pix','deposito','cartao','dinheiro','cheque','outros') NULL,
+    prazo_pagamento TINYINT UNSIGNED NULL COMMENT 'Prazo em dias',
+    vencimento      DATE NULL             COMMENT 'Data de vencimento do pagamento',
+
+    -- Entrega
+    data_emissao    DATE NOT NULL         COMMENT 'Data de emissão da NF ou da compra',
+    data_entrega    DATE NULL             COMMENT 'Data real de entrega/entrada no estoque',
+
+    observacao      TEXT NULL,
+    motivo_cancelamento VARCHAR(255) NULL,
+
+    -- Auditoria
+    criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_compra_numero (numero),
+
+    CONSTRAINT fk_compra_fornecedor
+        FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id)
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_compra_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Cabeçalho das ordens de compra';
+
+CREATE INDEX idx_compra_fornecedor ON compras(fornecedor_id);
+CREATE INDEX idx_compra_status     ON compras(status);
+CREATE INDEX idx_compra_emissao    ON compras(data_emissao);
+CREATE INDEX idx_compra_usuario    ON compras(usuario_id);
+
+-- ============================================================
+-- ITENS DA COMPRA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS compra_itens (
+    id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    compra_id            INT UNSIGNED NOT NULL,
+    produto_id           INT UNSIGNED NOT NULL,
+
+    -- Snapshot do produto no momento da compra
+    produto_nome         VARCHAR(150) NOT NULL,
+    produto_codigo       VARCHAR(50)  NOT NULL,
+    unidade_sigla        VARCHAR(10)  NOT NULL DEFAULT 'UN',
+
+    quantidade           DECIMAL(10,3) NOT NULL,
+    preco_unitario       DECIMAL(10,2) NOT NULL COMMENT 'Preço pago nesta compra',
+    desconto_item        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    subtotal             DECIMAL(10,2) NOT NULL,
+
+    -- Controle de entrada no estoque
+    estoque_atualizado   TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = já entrou no estoque',
+
+    CONSTRAINT fk_ci_compra
+        FOREIGN KEY (compra_id) REFERENCES compras(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+
+    CONSTRAINT fk_ci_produto
+        FOREIGN KEY (produto_id) REFERENCES produtos(id)
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Itens de cada ordem de compra';
+
+CREATE INDEX idx_ci_compra   ON compra_itens(compra_id);
+CREATE INDEX idx_ci_produto  ON compra_itens(produto_id);
+
+SET FOREIGN_KEY_CHECKS = 1;
  

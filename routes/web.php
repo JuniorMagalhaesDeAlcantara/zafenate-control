@@ -43,6 +43,7 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/produtos/{id}/editar',   'ProdutoController@edit');
     $r->post('/produtos/{id}/editar',  'ProdutoController@update');
     $r->post('/produtos/{id}/status',  'ProdutoController@toggleStatus');
+    $r->post('/produtos/rapido', 'ProdutoController@storeRapido');
 
     // ---- Fornecedores ----
     $r->get('/fornecedores',               'FornecedorController@index');
@@ -61,6 +62,17 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/clientes/{id}/editar',   'ClienteController@edit');
     $r->post('/clientes/{id}/editar',  'ClienteController@update');
     $r->post('/clientes/{id}/status',  'ClienteController@toggleStatus');
+
+    // ── Compras ─────────────────────────────────────────────────
+    $r->get('/compras',                 'CompraController@index');
+    $r->get('/compras/criar',           'CompraController@create');
+    $r->post('/compras/criar',          'CompraController@store');
+    $r->get('/compras/buscar-produto',  'CompraController@buscarProduto'); // AJAX
+    $r->get('/compras/{id}',            'CompraController@show');
+    $r->get('/compras/{id}/editar',     'CompraController@edit');
+    $r->post('/compras/{id}/editar',    'CompraController@update');
+    $r->post('/compras/{id}/confirmar', 'CompraController@confirmar');
+    $r->post('/compras/{id}/cancelar',  'CompraController@cancelar');
 
     // ---- Vendas ----
     $r->get('/vendas',                  'VendaController@index');

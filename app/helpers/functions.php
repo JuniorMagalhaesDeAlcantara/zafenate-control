@@ -211,4 +211,9 @@ if (!function_exists('dd')) {
         // Se a rota bater com o começo da URI, devolve a palavra 'active'
         return str_starts_with($uri, $rota) ? 'active' : '';
     }
+
+    function old($key, $default = '')
+    {
+        return $_POST[$key] ?? $default;
+    }
 }

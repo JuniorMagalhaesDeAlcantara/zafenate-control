@@ -236,4 +236,58 @@ class ProdutoController extends Controller
         // Redireciona de volta para a listagem principal
         redirect('/produtos');
     }
+
+    /**
+     * POST /produtos/rapido
+     * Cadastro rápido via AJAX (modal na tela de compra)
+     * Retorna JSON com o produto criado
+     */
+    public function storeRapido(Request $request): void
+    {
+        header('Content-Type: application/json');
+
+        try {
+            $dados = [
+                'nome'          => trim($request->input('nome', '')),
+                'unidade_id'    => (int)$request->input('unidade_id'),
+                'categoria_id'  => $request->input('categoria_id') ?: null,
+                'codigo_barras' => trim($request->input('codigo_barras', '')) ?: null,
+                'preco_custo'   => (float)str_replace(',', '.', $request->input('preco_custo', '0')),
+                'preco_venda'   => (float)str_replace(',', '.', $request->input('preco_venda', '0')),
+                'estoque_atual'  => 0.000,
+                'estoque_minimo' => 0.000,
+                'ativo'          => 1,
+            ];
+
+            if (empty($dados['nome'])) {
+                throw new \InvalidArgumentException('Nome do produto é obrigatório.');
+            }
+            if (empty($dados['unidade_id'])) {
+                throw new \InvalidArgumentException('Unidade é obrigatória.');
+            }
+
+            $dados['codigo'] = $this->produtoModel->gerarCodigo();
+
+            $id = $this->produtoModel->criar($dados);
+
+            // Busca o produto completo pra devolver pro JS
+            $produto = $this->produtoModel->buscarPorId($id);
+
+            echo json_encode([
+                'success' => true,
+                'produto' => [
+                    'id'           => $produto['id'],
+                    'nome'         => $produto['nome'],
+                    'codigo'       => $produto['codigo'],
+                    'preco_custo'  => $produto['preco_custo'],
+                    'unidade_sigla' => $produto['unidade_sigla'] ?? 'UN',
+                ]
+            ]);
+        } catch (\Exception $e) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        exit;
+    }
 }

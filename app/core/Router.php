@@ -4,8 +4,8 @@ namespace App\Core;
 
 class Router
 {
-    private array  $routes          = [];
-    private array  $middlewareMap   = [];
+    private array $routes     = [];
+    private array $middleware = [];
     private string $groupPrefix     = '';
     private array  $groupMiddleware = [];
 
@@ -23,6 +23,14 @@ class Router
         $this->add('POST', $uri, $action, $middleware);
     }
 
+    /**
+     * Grupo de rotas com prefixo e/ou middleware compartilhado.
+     *
+     * Exemplo:
+     *   $router->group(['prefix' => '/admin', 'middleware' => ['auth']], function ($r) {
+     *       $r->get('/dashboard', 'DashboardController@index');
+     *   });
+     */
     public function group(array $options, callable $callback): void
     {
         $prevPrefix     = $this->groupPrefix;
@@ -39,11 +47,14 @@ class Router
 
     private function add(string $method, string $uri, string $action, array $middleware): void
     {
+        $fullUri        = $this->groupPrefix . $uri;
+        $allMiddleware  = array_merge($this->groupMiddleware, $middleware);
+
         $this->routes[] = [
             'method'     => $method,
-            'pattern'    => $this->uriToPattern($this->groupPrefix . $uri),
+            'pattern'    => $this->uriToPattern($fullUri),
             'action'     => $action,
-            'middleware' => array_merge($this->groupMiddleware, $middleware),
+            'middleware' => $allMiddleware,
         ];
     }
 
@@ -51,6 +62,10 @@ class Router
     // Dispatch
     // ----------------------------------------------------------------
 
+    /**
+     * Resolve a requisição atual e executa o controller.
+     * Lança NotFoundException se nenhuma rota casar.
+     */
     public function dispatch(Request $request): void
     {
         $uri    = $this->normalize($request->uri());
@@ -65,51 +80,54 @@ class Router
                 continue;
             }
 
-            // Parâmetros nomeados da URI: /produtos/{id} → ['id' => '42']
+            // Parâmetros da URI (ex: /produtos/{id} → ['id' => '42'])
             $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
 
-            // Middleware
+            // Executa middleware em cadeia
             foreach ($route['middleware'] as $alias) {
                 $this->runMiddleware($alias, $request);
             }
 
-            // ✅ Passa o mesmo $request recebido — não cria um novo
-            $this->runAction($route['action'], $request, $params);
+            // Executa o controller
+            $this->runAction($route['action'], $params);
             return;
         }
 
+        // Nenhuma rota casou
         http_response_code(404);
-        if (class_exists('\\App\\Controllers\\ErrorController')) {
-            $this->runAction('ErrorController@notFound', $request, []);
-        } else {
-            echo '<h1>404 — Página não encontrada</h1>';
-        }
+        $this->runAction('ErrorController@notFound', []);
     }
 
     // ----------------------------------------------------------------
     // Middleware
     // ----------------------------------------------------------------
 
+    /**
+     * Registra um alias de middleware.
+     * $router->middleware('auth', \App\Middleware\AuthMiddleware::class);
+     */
     public function middleware(string $alias, string $class): void
     {
-        $this->middlewareMap[$alias] = $class;
+        $this->middleware[$alias] = $class;
     }
 
     private function runMiddleware(string $alias, Request $request): void
     {
-        if (!isset($this->middlewareMap[$alias])) {
+        if (!isset($this->middleware[$alias])) {
             throw new \RuntimeException("Middleware '{$alias}' não registrado.");
         }
-        (new $this->middlewareMap[$alias]())->handle($request);
+
+        $class = $this->middleware[$alias];
+        (new $class())->handle($request);
     }
 
     // ----------------------------------------------------------------
     // Action
     // ----------------------------------------------------------------
 
-    private function runAction(string $action, Request $request, array $params): void
+    private function runAction(string $action, array $params): void
     {
-        [$controllerName, $method] = explode('@', $action, 2);
+        [$controllerName, $method] = explode('@', $action);
 
         $class = "\\App\\Controllers\\{$controllerName}";
 
@@ -123,36 +141,26 @@ class Router
             throw new \RuntimeException("Método '{$method}' não existe em '{$class}'.");
         }
 
-        // ✅ Passa o $request original do dispatch + parâmetros da URI
-        $controller->$method($request, ...array_values($params));
+        // Injeta parâmetros nomeados da URI como argumentos
+        $controller->$method(...array_values($params));
     }
 
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
 
+    /**
+     * Converte URI com parâmetros em regex nomeada.
+     * /produtos/{id}  →  #^/produtos/(?P<id>[^/]+)$#
+     */
     private function uriToPattern(string $uri): string
     {
-        $escaped = preg_replace('/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/', '(?P<$1>[^/]+)', $uri);
-        return '#^' . $escaped . '$#u';
+        $pattern = preg_replace('/\{([a-zA-Z_]+)\}/', '(?P<$1>[^/]+)', $uri);
+        return '#^' . $pattern . '$#';
     }
 
-    /**
-     * ✅ CORRIGIDO: o bug original era:
-     *   return '/' . trim($uri, '/') ?: '/';
-     *
-     * O operador ?: tem precedência menor que o ponto,
-     * então avaliava como: ('/' . trim($uri, '/')) ?: '/'
-     * Quando trim retornava '' (URI raiz), '/' . '' = '/' → truthy → OK.
-     * Mas o real problema: URIs como '/produtos' viravam '/produtos'
-     * enquanto a rota estava registrada como '/produtos' — deveria casar.
-     * O bug estava em rotas aninhadas ficarem com double slash ou sem slash.
-     * Corrigido separando a lógica em duas linhas claras.
-     */
     private function normalize(string $uri): string
     {
-        $clean = '/' . trim($uri, '/');
-        // URI raiz: '/' — qualquer outra: sem trailing slash
-        return ($clean === '/') ? '/' : rtrim($clean, '/');
+        return '/' . trim($uri, '/') ?: '/';
     }
 }
