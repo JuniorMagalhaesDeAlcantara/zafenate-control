@@ -494,4 +494,78 @@ ALTER TABLE clientes
 -- Índice útil para busca por aniversariantes (relatórios)
 CREATE INDEX IF NOT EXISTS idx_cli_nascimento ON clientes(data_nascimento);
 CREATE INDEX IF NOT EXISTS idx_cli_tipo       ON clientes(tipo_pessoa);
+
+-- ============================================================
+-- Migration: 005_fornecedores_ampliado.sql
+-- Amplia a tabela fornecedores com dados financeiros,
+-- tipo de pessoa, Pix, avaliação e obs internas.
+-- ============================================================
+
+ALTER TABLE fornecedores
+
+    -- Tipo de pessoa (já indica PJ/PF para NF-e)
+    ADD COLUMN IF NOT EXISTS tipo_pessoa     ENUM('fisica','juridica') NOT NULL DEFAULT 'juridica'
+        COMMENT 'Tipo de pessoa'
+        AFTER id,
+
+    -- WhatsApp e site (faltavam)
+    ADD COLUMN IF NOT EXISTS whatsapp        VARCHAR(20)  NULL
+        COMMENT 'WhatsApp do fornecedor'
+        AFTER celular,
+
+    ADD COLUMN IF NOT EXISTS site            VARCHAR(150) NULL
+        COMMENT 'Site do fornecedor'
+        AFTER whatsapp,
+
+    -- Financeiro
+    ADD COLUMN IF NOT EXISTS forma_pagamento ENUM('boleto','pix','deposito','cartao','dinheiro','cheque','outros') NULL
+        COMMENT 'Forma de pagamento padrão'
+        AFTER prazo_pagamento,
+
+    ADD COLUMN IF NOT EXISTS limite_credito  DECIMAL(10,2) NOT NULL DEFAULT 0.00
+        COMMENT 'Limite de crédito para compras'
+        AFTER forma_pagamento,
+
+    ADD COLUMN IF NOT EXISTS banco           VARCHAR(80)  NULL
+        COMMENT 'Nome do banco'
+        AFTER limite_credito,
+
+    ADD COLUMN IF NOT EXISTS agencia         VARCHAR(20)  NULL
+        AFTER banco,
+
+    ADD COLUMN IF NOT EXISTS conta           VARCHAR(30)  NULL
+        AFTER agencia,
+
+    ADD COLUMN IF NOT EXISTS chave_pix       VARCHAR(150) NULL
+        COMMENT 'Chave Pix'
+        AFTER conta,
+
+    ADD COLUMN IF NOT EXISTS obs_financeiras TEXT NULL
+        COMMENT 'Observações financeiras internas'
+        AFTER chave_pix,
+
+    -- Comercial
+    ADD COLUMN IF NOT EXISTS prazo_entrega   TINYINT UNSIGNED NULL
+        COMMENT 'Prazo de entrega em dias'
+        AFTER obs_financeiras,
+
+    ADD COLUMN IF NOT EXISTS obs_internas    TEXT NULL
+        COMMENT 'Observações internas (ex: só atende até 17h)'
+        AFTER prazo_entrega,
+
+    -- Avaliação (1 a 5)
+    ADD COLUMN IF NOT EXISTS avaliacao_prazo       TINYINT UNSIGNED NULL
+        COMMENT 'Avaliação de prazo (1-5)'
+        AFTER obs_internas,
+
+    ADD COLUMN IF NOT EXISTS avaliacao_qualidade   TINYINT UNSIGNED NULL
+        COMMENT 'Avaliação de qualidade (1-5)'
+        AFTER avaliacao_prazo,
+
+    ADD COLUMN IF NOT EXISTS avaliacao_atendimento TINYINT UNSIGNED NULL
+        COMMENT 'Avaliação de atendimento (1-5)'
+        AFTER avaliacao_qualidade;
+
+-- Índice para busca por tipo
+CREATE INDEX IF NOT EXISTS idx_forn_tipo ON fornecedores(tipo_pessoa);
  

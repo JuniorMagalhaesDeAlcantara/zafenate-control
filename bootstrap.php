@@ -34,7 +34,7 @@ spl_autoload_register(function (string $class): void {
     if (str_starts_with($class, 'App\\')) {
         $relative = substr($class, 4);
         $file = APP_ROOT . '/app/' . str_replace('\\', '/', $relative) . '.php';
-        
+
         if (file_exists($file)) {
             require_once $file;
         }
@@ -47,6 +47,10 @@ spl_autoload_register(function (string $class): void {
 // ----------------------------------------------------------------
 if (file_exists(APP_ROOT . '/app/helpers/functions.php')) {
     require_once APP_ROOT . '/app/helpers/functions.php';
+}
+
+if (file_exists(APP_ROOT . '/app/helpers/format_helper.php')) {
+    require_once APP_ROOT . '/app/helpers/format_helper.php';
 }
 
 
