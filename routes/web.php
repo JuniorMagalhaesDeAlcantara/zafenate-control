@@ -114,6 +114,8 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/estoque/{id}/historico', 'EstoqueController@historico');
 
     // ── Financeiro ───────────────────────────────────────────────
+    $r->get('/financeiro',                        'FinanceiroController@visaoGeral');
+    $r->get('/financeiro/dre',                    'FinanceiroController@dre');
     $r->get('/financeiro/pagar',                  'FinanceiroController@pagar');
     $r->get('/financeiro/pagar/criar',            'FinanceiroController@pagarCreate');
     $r->post('/financeiro/pagar/criar',           'FinanceiroController@pagarStore');

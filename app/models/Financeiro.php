@@ -450,54 +450,222 @@ class Financeiro
     // FLUXO DE CAIXA
     // ================================================================
 
-    public function fluxoCaixa(string $de, string $ate): array
+    public function fluxoCaixa(string $de, string $ate, array $filtros = []): array
     {
-        // Entradas: contas recebidas no período
-        $entradas = $this->db->fetchAll("
-            SELECT
-                cr.data_recebimento AS data,
-                cr.descricao,
-                cr.valor_recebido   AS valor,
-                cf.nome             AS categoria,
-                cf.cor,
-                'receita'           AS tipo,
-                c.nome              AS origem
-            FROM contas_receber cr
-            LEFT JOIN categorias_financeiras cf ON cf.id = cr.categoria_id
-            LEFT JOIN clientes c                ON c.id  = cr.cliente_id
-            WHERE cr.status = 'recebido'
-              AND cr.data_recebimento BETWEEN :de AND :ate
-            ORDER BY cr.data_recebimento ASC
-        ", ['de' => $de, 'ate' => $ate]);
+        $whereE = ['cr.status = \'recebido\'', 'cr.data_recebimento BETWEEN :de AND :ate'];
+        $whereS = ['cp.status = \'pago\'',     'cp.data_pagamento   BETWEEN :de AND :ate'];
+        $params = ['de' => $de, 'ate' => $ate];
 
-        // Saídas: contas pagas no período
+        if (!empty($filtros['categoria_id'])) {
+            $whereE[] = 'cr.categoria_id = :cat';
+            $whereS[] = 'cp.categoria_id = :cat';
+            $params['cat'] = (int)$filtros['categoria_id'];
+        }
+
+        $entradas = $this->db->fetchAll("
+        SELECT
+            cr.id,
+            cr.data_recebimento        AS data,
+            cr.descricao,
+            cr.valor_recebido          AS valor,
+            cf.nome                    AS categoria,
+            cf.cor                     AS categoria_cor,
+            'receita'                  AS tipo,
+            COALESCE(c.nome, 'Manual') AS origem
+        FROM contas_receber cr
+        LEFT JOIN categorias_financeiras cf ON cf.id = cr.categoria_id
+        LEFT JOIN clientes c                ON c.id  = cr.cliente_id
+        WHERE " . implode(' AND ', $whereE) . "
+        ORDER BY cr.data_recebimento ASC, cr.id ASC
+    ", $params);
+
         $saidas = $this->db->fetchAll("
-            SELECT
-                cp.data_pagamento  AS data,
-                cp.descricao,
-                cp.valor_pago      AS valor,
-                cf.nome            AS categoria,
-                cf.cor,
-                'despesa'          AS tipo,
-                COALESCE(f.razao_social, 'Manual') AS origem
-            FROM contas_pagar cp
-            LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
-            LEFT JOIN fornecedores f             ON f.id  = cp.fornecedor_id
-            WHERE cp.status = 'pago'
-              AND cp.data_pagamento BETWEEN :de AND :ate
-            ORDER BY cp.data_pagamento ASC
-        ", ['de' => $de, 'ate' => $ate]);
+        SELECT
+            cp.id,
+            cp.data_pagamento                  AS data,
+            cp.descricao,
+            cp.valor_pago                      AS valor,
+            cf.nome                            AS categoria,
+            cf.cor                             AS categoria_cor,
+            'despesa'                          AS tipo,
+            COALESCE(f.razao_social, 'Manual') AS origem
+        FROM contas_pagar cp
+        LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
+        LEFT JOIN fornecedores f             ON f.id  = cp.fornecedor_id
+        WHERE " . implode(' AND ', $whereS) . "
+        ORDER BY cp.data_pagamento ASC, cp.id ASC
+    ", $params);
+
+        // Vendas PDV à vista (sem conta a receber vinculada)
+        // Não aplica filtro de categoria pois vendas PDV não têm categoria financeira
+        $vendasPdv = $this->db->fetchAll("
+        SELECT
+            NULL                        AS id,
+            DATE(v.criado_em)           AS data,
+            CONCAT('Venda #', v.numero) AS descricao,
+            v.total                     AS valor,
+            'receita'                   AS tipo,
+            'PDV'                       AS origem,
+            NULL                        AS categoria,
+            NULL                        AS categoria_cor
+        FROM vendas v
+        WHERE v.status = 'finalizada'
+          AND DATE(v.criado_em) BETWEEN :de AND :ate
+          AND NOT EXISTS (
+              SELECT 1 FROM contas_receber cr
+              WHERE cr.venda_id = v.id
+          )
+        ORDER BY v.criado_em ASC
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // Mescla entradas manuais + vendas PDV
+        $entradas = array_merge($entradas, $vendasPdv);
+
+        // Mescla tudo e ordena por data para calcular saldo acumulado linha a linha
+        $movimentacoes = array_merge($entradas, $saidas);
+        usort(
+            $movimentacoes,
+            fn($a, $b) =>
+            strcmp($a['data'], $b['data']) ?: ($a['tipo'] <=> $b['tipo'])
+        );
+
+        // Saldo anterior ao período (inclui PDV)
+        $saldoAnterior = $this->saldoAntesde($de, $filtros);
+
+        // Saldo acumulado por linha
+        $acumulado = $saldoAnterior;
+        foreach ($movimentacoes as &$m) {
+            $acumulado += $m['tipo'] === 'receita' ? (float)$m['valor'] : -(float)$m['valor'];
+            $m['saldo_acumulado'] = $acumulado;
+        }
+        unset($m);
 
         $totalEntradas = array_sum(array_column($entradas, 'valor'));
         $totalSaidas   = array_sum(array_column($saidas,   'valor'));
 
+        // Agrupamento diário para o gráfico
+        $graficoDias = $this->graficoPorDia($de, $ate, $entradas, $saidas, $saldoAnterior);
+
+        // Projeção: próximos 30 dias
+        $projecao = $this->projecao30Dias();
+
         return [
-            'entradas'        => $entradas,
-            'saidas'          => $saidas,
-            'total_entradas'  => $totalEntradas,
-            'total_saidas'    => $totalSaidas,
-            'saldo'           => $totalEntradas - $totalSaidas,
+            'movimentacoes'    => $movimentacoes,
+            'total_entradas'   => $totalEntradas,
+            'total_saidas'     => $totalSaidas,
+            'saldo'            => $totalEntradas - $totalSaidas,
+            'saldo_anterior'   => $saldoAnterior,
+            'saldo_final'      => $saldoAnterior + ($totalEntradas - $totalSaidas),
+            'grafico_dias'     => $graficoDias,
+            'projecao'         => $projecao,
+            'grafico_labels'   => array_column($graficoDias, 'label'),
+            'grafico_entradas' => array_column($graficoDias, 'entradas'),
+            'grafico_saidas'   => array_column($graficoDias, 'saidas'),
+            'grafico_saldo'    => array_column($graficoDias, 'saldo_acum'),
         ];
+    }
+
+    private function saldoAntesde(string $de, array $filtros = []): float
+    {
+        $cat = !empty($filtros['categoria_id'])
+            ? ' AND categoria_id = ' . (int)$filtros['categoria_id']
+            : '';
+
+        // Contas recebidas antes do período
+        $rec = (float)($this->db->fetchOne("
+        SELECT COALESCE(SUM(valor_recebido), 0) AS total
+        FROM contas_receber
+        WHERE status = 'recebido'
+          AND data_recebimento < :de
+          {$cat}
+    ", ['de' => $de])['total'] ?? 0);
+
+        // Vendas PDV à vista antes do período (sem filtro de categoria)
+        $pdv = (float)($this->db->fetchOne("
+        SELECT COALESCE(SUM(v.total), 0) AS total
+        FROM vendas v
+        WHERE v.status = 'finalizada'
+          AND DATE(v.criado_em) < :de
+          AND NOT EXISTS (
+              SELECT 1 FROM contas_receber cr
+              WHERE cr.venda_id = v.id
+          )
+    ", ['de' => $de])['total'] ?? 0);
+
+        // Contas pagas antes do período
+        $pag = (float)($this->db->fetchOne("
+        SELECT COALESCE(SUM(valor_pago), 0) AS total
+        FROM contas_pagar
+        WHERE status = 'pago'
+          AND data_pagamento < :de
+          {$cat}
+    ", ['de' => $de])['total'] ?? 0);
+
+        return ($rec + $pdv) - $pag;
+    }
+
+    private function graficoPorDia(string $de, string $ate, array $entradas, array $saidas, float $saldoInicial): array
+    {
+        $idxE = [];
+        foreach ($entradas as $e) {
+            $idxE[$e['data']] = ($idxE[$e['data']] ?? 0) + $e['valor'];
+        }
+        $idxS = [];
+        foreach ($saidas as $s) {
+            $idxS[$s['data']] = ($idxS[$s['data']] ?? 0) + $s['valor'];
+        }
+
+        $result = [];
+        $acum   = $saldoInicial;
+        $cur    = new \DateTime($de);
+        $end    = new \DateTime($ate);
+
+        while ($cur <= $end) {
+            $dia   = $cur->format('Y-m-d');
+            $ent   = (float)($idxE[$dia] ?? 0);
+            $sai   = (float)($idxS[$dia] ?? 0);
+            $acum += $ent - $sai;
+
+            $result[] = [
+                'label'     => $cur->format('d/m'),
+                'entradas'  => $ent,
+                'saidas'    => $sai,
+                'saldo_acum' => $acum,
+            ];
+            $cur->modify('+1 day');
+        }
+        return $result;
+    }
+
+    public function projecao30Dias(): array
+    {
+        $ate = date('Y-m-d', strtotime('+30 days'));
+
+        $pagar = $this->db->fetchAll("
+        SELECT vencimento AS data, descricao,
+               (valor - valor_pago) AS valor, 'despesa' AS tipo,
+               COALESCE(f.razao_social,'Manual') AS origem
+        FROM contas_pagar cp
+        LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id
+        WHERE cp.status NOT IN ('pago','cancelado')
+          AND cp.vencimento BETWEEN CURDATE() AND :ate
+        ORDER BY cp.vencimento ASC
+    ", ['ate' => $ate]);
+
+        $receber = $this->db->fetchAll("
+        SELECT vencimento AS data, descricao,
+               (valor - valor_recebido) AS valor, 'receita' AS tipo,
+               COALESCE(c.nome,'Manual') AS origem
+        FROM contas_receber cr
+        LEFT JOIN clientes c ON c.id = cr.cliente_id
+        WHERE cr.status NOT IN ('recebido','cancelado')
+          AND cr.vencimento BETWEEN CURDATE() AND :ate
+        ORDER BY cr.vencimento ASC
+    ", ['ate' => $ate]);
+
+        $merged = array_merge($pagar, $receber);
+        usort($merged, fn($a, $b) => strcmp($a['data'], $b['data']));
+        return $merged;
     }
 
     // ================================================================
@@ -545,5 +713,281 @@ class Financeiro
             'observacao'     => 'Gerado automaticamente ao confirmar a compra.',
             'status'         => 'aberto',
         ]);
+    }
+
+    // Adicionar após totaisReceber()
+
+    public function vencimentosProximos(int $dias = 7): array
+    {
+        $ate = date('Y-m-d', strtotime("+{$dias} days"));
+
+        $pagar = $this->db->fetchAll("
+        SELECT id, descricao, vencimento, valor, valor_pago, 'pagar' AS tipo
+        FROM contas_pagar
+        WHERE status NOT IN ('pago','cancelado')
+          AND vencimento BETWEEN CURDATE() AND :ate
+        ORDER BY vencimento ASC
+    ", ['ate' => $ate]);
+
+        $receber = $this->db->fetchAll("
+        SELECT id, descricao, vencimento, valor, valor_recebido, 'receber' AS tipo
+        FROM contas_receber
+        WHERE status NOT IN ('recebido','cancelado')
+          AND vencimento BETWEEN CURDATE() AND :ate
+        ORDER BY vencimento ASC
+    ", ['ate' => $ate]);
+
+        $merged = array_merge($pagar, $receber);
+        usort($merged, fn($a, $b) => strcmp($a['vencimento'], $b['vencimento']));
+        return $merged;
+    }
+
+    public function contasVencidas(): array
+    {
+        $pagar = $this->db->fetchAll("
+        SELECT id, descricao, vencimento, valor, valor_pago, 'pagar' AS tipo
+        FROM contas_pagar
+        WHERE status NOT IN ('pago','cancelado')
+          AND vencimento < CURDATE()
+        ORDER BY vencimento ASC
+        LIMIT 20
+    ");
+
+        $receber = $this->db->fetchAll("
+        SELECT id, descricao, vencimento, valor, valor_recebido, 'receber' AS tipo
+        FROM contas_receber
+        WHERE status NOT IN ('recebido','cancelado')
+          AND vencimento < CURDATE()
+        ORDER BY vencimento ASC
+        LIMIT 20
+    ");
+
+        return ['pagar' => $pagar, 'receber' => $receber];
+    }
+
+    public function ultimosLancamentos(int $limite = 10): array
+    {
+        $pagar = $this->db->fetchAll("
+        SELECT cp.id, cp.descricao, cp.valor, cp.criado_em,
+               cf.nome AS categoria_nome, 'pagar' AS _tipo
+        FROM contas_pagar cp
+        LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
+        ORDER BY cp.criado_em DESC
+        LIMIT {$limite}
+    ");
+
+        $receber = $this->db->fetchAll("
+        SELECT cr.id, cr.descricao, cr.valor, cr.criado_em,
+               cf.nome AS categoria_nome, 'receber' AS _tipo
+        FROM contas_receber cr
+        LEFT JOIN categorias_financeiras cf ON cf.id = cr.categoria_id
+        ORDER BY cr.criado_em DESC
+        LIMIT {$limite}
+    ");
+
+        $merged = array_merge($pagar, $receber);
+        usort($merged, fn($a, $b) => strcmp($b['criado_em'], $a['criado_em']));
+        return array_slice($merged, 0, $limite);
+    }
+
+    public function fluxo30Dias(): array
+    {
+        $de  = date('Y-m-d', strtotime('-29 days'));
+        $ate = date('Y-m-d');
+
+        $entradas = $this->db->fetchAll("
+        SELECT DATE(data_recebimento) AS dia, SUM(valor_recebido) AS total
+        FROM contas_receber
+        WHERE status = 'recebido'
+          AND data_recebimento BETWEEN :de AND :ate
+        GROUP BY dia
+    ", ['de' => $de, 'ate' => $ate]);
+
+        $saidas = $this->db->fetchAll("
+        SELECT DATE(data_pagamento) AS dia, SUM(valor_pago) AS total
+        FROM contas_pagar
+        WHERE status = 'pago'
+          AND data_pagamento BETWEEN :de AND :ate
+        GROUP BY dia
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // Indexa por dia
+        $idxE = array_column($entradas, 'total', 'dia');
+        $idxS = array_column($saidas,   'total', 'dia');
+
+        $result = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $dia = date('Y-m-d', strtotime("-{$i} days"));
+            $result[] = [
+                'dia'      => date('d/m', strtotime($dia)),
+                'entradas' => (float)($idxE[$dia] ?? 0),
+                'saidas'   => (float)($idxS[$dia] ?? 0),
+            ];
+        }
+        return $result;
+    }
+
+    // ================================================================
+    // DRE — Demonstração do Resultado do Exercício
+    // ================================================================
+
+    public function dre(string $de, string $ate): array
+    {
+        // ── 1. RECEITA BRUTA — vendas finalizadas no período ──────────
+        $vendas = $this->db->fetchOne("
+        SELECT
+            COUNT(*)        AS qtd_vendas,
+            COALESCE(SUM(total), 0)    AS receita_bruta,
+            COALESCE(SUM(desconto_valor), 0) AS total_descontos
+        FROM vendas
+        WHERE status = 'finalizada'
+          AND DATE(criado_em) BETWEEN :de AND :ate
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 2. CANCELAMENTOS no período ───────────────────────────────
+        $cancelamentos = $this->db->fetchOne("
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM vendas
+        WHERE status = 'cancelada'
+          AND DATE(cancelado_em) BETWEEN :de AND :ate
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 3. CMV — Custo da Mercadoria Vendida ──────────────────────
+        $cmv = $this->db->fetchOne("
+        SELECT COALESCE(SUM(vi.quantidade * vi.preco_custo), 0) AS total
+        FROM venda_itens vi
+        INNER JOIN vendas v ON v.id = vi.venda_id
+        WHERE v.status = 'finalizada'
+          AND DATE(v.criado_em) BETWEEN :de AND :ate
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 4. OUTRAS RECEITAS — contas a receber manuais (sem venda) ─
+        $outrasReceitas = $this->db->fetchAll("
+        SELECT
+            COALESCE(cf.nome, 'Sem categoria') AS categoria,
+            cf.cor                             AS categoria_cor,
+            COALESCE(SUM(cr.valor_recebido), 0) AS total
+        FROM contas_receber cr
+        LEFT JOIN categorias_financeiras cf ON cf.id = cr.categoria_id
+        WHERE cr.status = 'recebido'
+          AND cr.venda_id IS NULL
+          AND DATE(cr.data_recebimento) BETWEEN :de AND :ate
+        GROUP BY cf.id, cf.nome, cf.cor
+        ORDER BY total DESC
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 5. DESPESAS por categoria ─────────────────────────────────
+        $despesas = $this->db->fetchAll("
+        SELECT
+            COALESCE(cf.nome, 'Sem categoria') AS categoria,
+            cf.cor                             AS categoria_cor,
+            COALESCE(SUM(cp.valor_pago), 0)    AS total,
+            COUNT(*)                           AS qtd
+        FROM contas_pagar cp
+        LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
+        WHERE cp.status = 'pago'
+          AND DATE(cp.data_pagamento) BETWEEN :de AND :ate
+        GROUP BY cf.id, cf.nome, cf.cor
+        ORDER BY total DESC
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 6. Ticket médio e produto mais vendido ────────────────────
+        $ticketMedio = $vendas['qtd_vendas'] > 0
+            ? $vendas['receita_bruta'] / $vendas['qtd_vendas']
+            : 0;
+
+        $topProdutos = $this->db->fetchAll("
+        SELECT
+            vi.produto_nome                         AS nome,
+            SUM(vi.quantidade)                      AS qty,
+            SUM(vi.subtotal)                        AS receita,
+            SUM(vi.quantidade * vi.preco_custo)     AS custo,
+            SUM(vi.subtotal) - SUM(vi.quantidade * vi.preco_custo) AS lucro
+        FROM venda_itens vi
+        INNER JOIN vendas v ON v.id = vi.venda_id
+        WHERE v.status = 'finalizada'
+          AND DATE(v.criado_em) BETWEEN :de AND :ate
+        GROUP BY vi.produto_nome
+        ORDER BY receita DESC
+        LIMIT 8
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 7. Receita por forma de pagamento ─────────────────────────
+        $porForma = $this->db->fetchAll("
+        SELECT
+            vp.forma,
+            COALESCE(SUM(vp.valor - vp.troco), 0) AS total,
+            COUNT(DISTINCT vp.venda_id)            AS qtd
+        FROM venda_pagamentos vp
+        INNER JOIN vendas v ON v.id = vp.venda_id
+        WHERE v.status = 'finalizada'
+          AND DATE(v.criado_em) BETWEEN :de AND :ate
+        GROUP BY vp.forma
+        ORDER BY total DESC
+    ", ['de' => $de, 'ate' => $ate]);
+
+        // ── 8. Cálculos finais ────────────────────────────────────────
+        $receitaBruta      = (float)($vendas['receita_bruta']    ?? 0);
+        $totalDescontos    = (float)($vendas['total_descontos']  ?? 0);
+        $totalCancelamentos = (float)($cancelamentos['total']    ?? 0);
+        $receitaLiquida    = $receitaBruta - $totalCancelamentos;
+
+        $totalOutrasReceitas = array_sum(array_column($outrasReceitas, 'total'));
+        $receitaTotal        = $receitaLiquida + $totalOutrasReceitas;
+
+        $totalCmv     = (float)($cmv['total'] ?? 0);
+        $lucroBruto   = $receitaTotal - $totalCmv;
+        $margemBruta  = $receitaTotal > 0 ? ($lucroBruto / $receitaTotal * 100) : 0;
+
+        $totalDespesas    = array_sum(array_column($despesas, 'total'));
+        $resultadoLiquido = $lucroBruto - $totalDespesas;
+        $margemLiquida    = $receitaTotal > 0 ? ($resultadoLiquido / $receitaTotal * 100) : 0;
+
+        // Evolução mensal (últimos 12 meses para gráfico)
+        $evolucao = $this->db->fetchAll("
+        SELECT
+            DATE_FORMAT(v.criado_em, '%Y-%m') AS mes,
+            DATE_FORMAT(v.criado_em, '%m/%Y') AS mes_label,
+            COALESCE(SUM(v.total), 0)         AS receita,
+            COALESCE(SUM(vi2.custo), 0)       AS custo
+        FROM vendas v
+        LEFT JOIN (
+            SELECT venda_id, SUM(quantidade * preco_custo) AS custo
+            FROM venda_itens GROUP BY venda_id
+        ) vi2 ON vi2.venda_id = v.id
+        WHERE v.status = 'finalizada'
+          AND v.criado_em >= DATE_SUB(:ate_ev, INTERVAL 11 MONTH)
+          AND DATE(v.criado_em) <= :ate_ev2
+        GROUP BY mes, mes_label
+        ORDER BY mes ASC
+    ", ['ate_ev' => $ate, 'ate_ev2' => $ate]);
+
+        return [
+            // Receitas
+            'receita_bruta'        => $receitaBruta,
+            'total_descontos'      => $totalDescontos,
+            'total_cancelamentos'  => $totalCancelamentos,
+            'receita_liquida'      => $receitaLiquida,
+            'outras_receitas'      => $outrasReceitas,
+            'total_outras_receitas' => $totalOutrasReceitas,
+            'receita_total'        => $receitaTotal,
+            // CMV e lucro bruto
+            'cmv'                  => $totalCmv,
+            'lucro_bruto'          => $lucroBruto,
+            'margem_bruta'         => $margemBruta,
+            // Despesas
+            'despesas'             => $despesas,
+            'total_despesas'       => $totalDespesas,
+            // Resultado
+            'resultado_liquido'    => $resultadoLiquido,
+            'margem_liquida'       => $margemLiquida,
+            // Indicadores
+            'qtd_vendas'           => (int)($vendas['qtd_vendas'] ?? 0),
+            'ticket_medio'         => $ticketMedio,
+            'top_produtos'         => $topProdutos,
+            'por_forma'            => $porForma,
+            // Gráfico
+            'evolucao'             => $evolucao,
+        ];
     }
 }

@@ -16,6 +16,26 @@ class FinanceiroController extends Controller
         $this->model = new FinanceiroModel();
     }
 
+    public function visaoGeral(): void
+    {
+        $vencidas = $this->model->contasVencidas();
+
+        $this->view('financeiro/visao_geral', [
+            'totais_pagar'            => $this->model->totaisPagar(),
+            'totais_receber'          => $this->model->totaisReceber(),
+            'vencimentos_proximos'    => $this->model->vencimentosProximos(7),
+            'contas_vencidas_pagar'   => $vencidas['pagar'],
+            'contas_vencidas_receber' => $vencidas['receber'],
+            'ultimos_lancamentos'     => $this->model->ultimosLancamentos(10),
+            'fluxo_30dias'            => $this->model->fluxo30Dias(),
+            'pageTitle'               => 'Visão Geral Financeira',
+            'breadcrumb'              => [
+                ['label' => 'Dashboard',              'url' => '/dashboard'],
+                ['label' => 'Visão Geral Financeira', 'url' => '#'],
+            ],
+        ]);
+    }
+
     // ================================================================
     // CONTAS A PAGAR
     // ================================================================
@@ -227,15 +247,89 @@ class FinanceiroController extends Controller
         $de  = $_GET['de']  ?? date('Y-m-01');
         $ate = $_GET['ate'] ?? date('Y-m-t');
 
-        $dados = $this->model->fluxoCaixa($de, $ate);
+        // Atalhos rápidos
+        $atalho = $_GET['atalho'] ?? '';
+        switch ($atalho) {
+            case 'hoje':
+                $de = $ate = date('Y-m-d');
+                break;
+            case 'semana':
+                $de  = date('Y-m-d', strtotime('monday this week'));
+                $ate = date('Y-m-d', strtotime('sunday this week'));
+                break;
+            case 'mes':
+                $de  = date('Y-m-01');
+                $ate = date('Y-m-t');
+                break;
+            case 'mes_anterior':
+                $de  = date('Y-m-01', strtotime('first day of last month'));
+                $ate = date('Y-m-t',  strtotime('last day of last month'));
+                break;
+            case '90dias':
+                $de  = date('Y-m-d', strtotime('-89 days'));
+                $ate = date('Y-m-d');
+                break;
+        }
+
+        $filtros    = ['categoria_id' => $_GET['categoria_id'] ?? ''];
+        $categorias = $this->model->listarCategorias();
+        $dados      = $this->model->fluxoCaixa($de, $ate, $filtros);
 
         $this->view('financeiro/fluxo', $dados + [
+            'de'          => $de,
+            'ate'         => $ate,
+            'atalho'      => $atalho,
+            'filtros'     => $filtros,
+            'categorias'  => $categorias,
+            'pageTitle'   => 'Fluxo de Caixa',
+            'breadcrumb'  => [
+                ['label' => 'Dashboard',      'url' => '/dashboard'],
+                ['label' => 'Financeiro',     'url' => '/financeiro'],
+                ['label' => 'Fluxo de Caixa', 'url' => '#'],
+            ],
+        ]);
+    }
+
+    // ================================================================
+    // DRE
+    // ================================================================
+
+    public function dre(): void
+    {
+        $de  = $_GET['de']  ?? date('Y-m-01');
+        $ate = $_GET['ate'] ?? date('Y-m-t');
+
+        $atalho = $_GET['atalho'] ?? '';
+        switch ($atalho) {
+            case 'mes':
+                $de  = date('Y-m-01');
+                $ate = date('Y-m-t');
+                break;
+            case 'mes_anterior':
+                $de  = date('Y-m-01', strtotime('first day of last month'));
+                $ate = date('Y-m-t',  strtotime('last day of last month'));
+                break;
+            case 'trimestre':
+                $de  = date('Y-m-01', strtotime('-2 months'));
+                $ate = date('Y-m-t');
+                break;
+            case 'ano':
+                $de  = date('Y-01-01');
+                $ate = date('Y-12-31');
+                break;
+        }
+
+        $dados = $this->model->dre($de, $ate);
+
+        $this->view('financeiro/dre', $dados + [
             'de'         => $de,
             'ate'        => $ate,
-            'pageTitle'  => 'Fluxo de Caixa',
+            'atalho'     => $atalho,
+            'pageTitle'  => 'DRE — Resultado do Exercício',
             'breadcrumb' => [
-                ['label' => 'Dashboard',     'url' => '/dashboard'],
-                ['label' => 'Fluxo de Caixa', 'url' => '#'],
+                ['label' => 'Dashboard',  'url' => '/dashboard'],
+                ['label' => 'Financeiro', 'url' => '/financeiro'],
+                ['label' => 'DRE',        'url' => '#'],
             ],
         ]);
     }
