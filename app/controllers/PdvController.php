@@ -43,13 +43,21 @@ class PdvController extends Controller
         }
 
         $produtos = $this->db->fetchAll(
-            "SELECT p.id, p.nome, p.preco_venda, p.estoque_atual,
-                    p.codigo, u.sigla AS unidade_sigla
-             FROM produtos p
-             LEFT JOIN unidades u ON u.id = p.unidade_id
-             WHERE p.ativo = 1
-             ORDER BY p.nome ASC
-             LIMIT 16"
+            "SELECT p.id, p.nome, p.preco_venda, p.preco_custo, p.estoque_atual,
+            p.codigo, COALESCE(u.sigla, 'UN') AS unidade_sigla,
+            COALESCE(SUM(vi.quantidade), 0) AS total_vendido
+                FROM produtos p
+                LEFT JOIN unidades u ON u.id = p.unidade_id
+                LEFT JOIN venda_itens vi ON vi.produto_id = p.id
+                    AND vi.venda_id IN (
+                        SELECT id FROM vendas
+                        WHERE status = 'finalizada'
+                        AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                    )
+                WHERE p.ativo = 1
+                GROUP BY p.id
+                ORDER BY total_vendido DESC, p.nome ASC
+                LIMIT 16"
         );
 
         $clientes = $this->db->fetchAll(
@@ -165,7 +173,14 @@ class PdvController extends Controller
                     return;
                 }
 
-                $pagamentos[] = ['forma' => $forma, 'valor' => $valor, 'troco' => $troco];
+                $parcelas = isset($p['parcelas']) ? (int) $p['parcelas'] : 1;
+
+                $pagamentos[] = [
+                    'forma'    => $forma,
+                    'valor'    => $valor,
+                    'troco'    => $troco,
+                    'parcelas' => $parcelas,
+                ];
                 $totalPago   += $valor - $troco; // valor líquido recebido
             }
 
@@ -184,7 +199,7 @@ class PdvController extends Controller
             }
 
 
-            $this->vendaModel->salvarVenda(
+            $vendaId = $this->vendaModel->salvarVenda(
                 dados: [
                     'caixa_id'       => $caixaId,
                     'cliente_id'     => $clienteId,
@@ -199,6 +214,12 @@ class PdvController extends Controller
                 pagamentos: $pagamentos
             );
 
+            $imprimirCupom = $request->input('imprimir_cupom') === '1';
+
+            if ($imprimirCupom) {
+                // Abre cupom em nova aba via JS e volta ao PDV
+                Session::flash('cupom_url', '/vendas/' . $vendaId . '/cupom');
+            }
             Session::flash('success', 'Venda finalizada com sucesso!');
             $this->redirect('/pdv');
         } catch (\RuntimeException $e) {

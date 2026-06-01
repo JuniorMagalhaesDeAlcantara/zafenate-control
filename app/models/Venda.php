@@ -101,13 +101,14 @@ class Venda
             // 4. Pagamentos
             foreach ($pagamentos as $pgto) {
                 $this->db->execute("
-                    INSERT INTO venda_pagamentos (venda_id, forma, valor, troco)
-                    VALUES (:venda_id, :forma, :valor, :troco)
+                    INSERT INTO venda_pagamentos (venda_id, forma, valor, troco, parcelas)
+                    VALUES (:venda_id, :forma, :valor, :troco, :parcelas)
                 ", [
                     'venda_id' => $vendaId,
                     'forma'    => $pgto['forma'],
                     'valor'    => $pgto['valor'],
-                    'troco'    => $pgto['troco'] ?? 0.00,
+                    'troco'    => $pgto['troco']    ?? 0.00,
+                    'parcelas' => $pgto['parcelas'] ?? 1,
                 ]);
             }
 

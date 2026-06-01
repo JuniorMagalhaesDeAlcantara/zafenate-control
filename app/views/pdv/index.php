@@ -899,6 +899,57 @@
             color: var(--green);
         }
 
+        /* ── Seletor de parcelas ── */
+        .parcelas-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .parcela-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 10px 4px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            cursor: pointer;
+            font-family: var(--font);
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .parcela-btn:hover {
+            border-color: var(--border-md);
+            background: #fff;
+        }
+
+        .parcela-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+        }
+
+        .parcela-btn.selected .parcela-num,
+        .parcela-btn.selected .parcela-sub {
+            color: #fff;
+        }
+
+        .parcela-num {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .parcela-sub {
+            font-size: 10px;
+            color: var(--text-3);
+            line-height: 1;
+            white-space: nowrap;
+        }
+
         /* Botões modais */
         .btn-modal {
             flex: 1;
@@ -1031,21 +1082,21 @@
             </div>
 
             <!-- Produtos recentes / favoritos -->
-            <div class="pdv-section-label">Produtos recentes</div>
+            <div class="pdv-section-label">Mais vendidos</div>
 
             <div class="pdv-grid" id="pdv-grid">
                 <?php foreach ($produtos as $p): ?>
                     <div
                         class="pdv-product-card <?= $p['estoque_atual'] <= 0 ? 'out-of-stock' : '' ?>"
-                        onclick="<?= $p['estoque_atual'] > 0 ? 'addItem(' . json_encode([
-                                        'id'            => (int)$p['id'],
-                                        'nome'          => $p['nome'],
-                                        'preco'         => (float)$p['preco_venda'],
-                                        'preco_custo'   => (float)($p['preco_custo'] ?? 0),
-                                        'estoque'       => (float)$p['estoque_atual'],
-                                        'codigo'        => $p['codigo'] ?? '',
-                                        'unidade_sigla' => $p['unidade_sigla'] ?? 'UN',
-                                    ]) . ')' : 'void(0)' ?>"
+                        data-produto="<?= htmlspecialchars(json_encode([
+                                            'id'            => (int)$p['id'],
+                                            'nome'          => $p['nome'],
+                                            'preco'         => (float)$p['preco_venda'],
+                                            'preco_custo'   => (float)($p['preco_custo'] ?? 0),
+                                            'estoque'       => (float)$p['estoque_atual'],
+                                            'codigo'        => $p['codigo'] ?? '',
+                                            'unidade_sigla' => $p['unidade_sigla'] ?? 'UN',
+                                        ]), ENT_QUOTES, 'UTF-8') ?>"
                         title="<?= e($p['nome']) ?> — R$ <?= number_format($p['preco_venda'], 2, ',', '.') ?>">
                         <div class="pdv-product-icon">📦</div>
                         <div class="pdv-product-name"><?= e($p['nome']) ?></div>
@@ -1197,6 +1248,64 @@
                     </button>
                 </div>
 
+                <!-- Parcelas — só aparece para crédito -->
+                <!-- ✅ COLOCAR no lugar -->
+                <div id="pgto-parcelas-wrap" style="display:none; margin-bottom:16px;">
+                    <div class="pgto-label">Parcelas</div>
+                    <div class="parcelas-grid" id="parcelas-grid">
+                        <button type="button" class="parcela-btn selected" data-parcela="1" onclick="selecionarParcela(1)">
+                            <span class="parcela-num">À vista</span>
+                            <span class="parcela-sub">1×</span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="2" onclick="selecionarParcela(2)">
+                            <span class="parcela-num">2×</span>
+                            <span class="parcela-sub" id="psub-2"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="3" onclick="selecionarParcela(3)">
+                            <span class="parcela-num">3×</span>
+                            <span class="parcela-sub" id="psub-3"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="4" onclick="selecionarParcela(4)">
+                            <span class="parcela-num">4×</span>
+                            <span class="parcela-sub" id="psub-4"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="5" onclick="selecionarParcela(5)">
+                            <span class="parcela-num">5×</span>
+                            <span class="parcela-sub" id="psub-5"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="6" onclick="selecionarParcela(6)">
+                            <span class="parcela-num">6×</span>
+                            <span class="parcela-sub" id="psub-6"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="7" onclick="selecionarParcela(7)">
+                            <span class="parcela-num">7×</span>
+                            <span class="parcela-sub" id="psub-7"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="8" onclick="selecionarParcela(8)">
+                            <span class="parcela-num">8×</span>
+                            <span class="parcela-sub" id="psub-8"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="9" onclick="selecionarParcela(9)">
+                            <span class="parcela-num">9×</span>
+                            <span class="parcela-sub" id="psub-9"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="10" onclick="selecionarParcela(10)">
+                            <span class="parcela-num">10×</span>
+                            <span class="parcela-sub" id="psub-10"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="11" onclick="selecionarParcela(11)">
+                            <span class="parcela-num">11×</span>
+                            <span class="parcela-sub" id="psub-11"></span>
+                        </button>
+                        <button type="button" class="parcela-btn" data-parcela="12" onclick="selecionarParcela(12)">
+                            <span class="parcela-num">12×</span>
+                            <span class="parcela-sub" id="psub-12"></span>
+                        </button>
+                    </div>
+                    <!-- input oculto que substitui o select para o restante do JS não quebrar -->
+                    <input type="hidden" id="pgto-parcelas" value="1">
+                </div>
+
                 <!-- Valor do pagamento atual -->
                 <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
                     <div style="flex:1">
@@ -1208,38 +1317,38 @@
                             placeholder="0,00"
                             step="0.01"
                             min="0.01"
-                            oninput="atualizarTrocoParcial()">
-                    </div>
-                    <button
-                        id="btn-add-pgto"
-                        onclick="adicionarPagamento()"
-                        style="padding:11px 18px;background:var(--primary);color:#fff;border:none;border-radius:6px;
+                            oninput="atualizarTrocoParcial(); atualizarSubtextoParcelas();"
+                            </div>
+                        <button
+                            id="btn-add-pgto"
+                            onclick="adicionarPagamento()"
+                            style="padding:11px 18px;background:var(--primary);color:#fff;border:none;border-radius:6px;
                                font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;
                                display:flex;align-items:center;gap:6px;white-space:nowrap;height:46px">
-                        <i class="ti ti-plus"></i> Adicionar
+                            <i class="ti ti-plus"></i> Adicionar
+                        </button>
+                    </div>
+
+                    <!-- Troco (só dinheiro) -->
+                    <div class="pgto-dinheiro-box show" id="pgto-dinheiro-box">
+                        <div class="pgto-troco-box" id="pgto-troco-box" style="display:none">
+                            <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco estimado</span>
+                            <span class="pgto-troco-value" id="pgto-troco">R$ 0,00</span>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-modal btn-modal-cancel" onclick="fecharModal('modal-pagamento')">
+                        Cancelar
+                    </button>
+                    <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()" disabled>
+                        <i class="ti ti-check"></i> Confirmar venda
                     </button>
                 </div>
-
-                <!-- Troco (só dinheiro) -->
-                <div class="pgto-dinheiro-box show" id="pgto-dinheiro-box">
-                    <div class="pgto-troco-box" id="pgto-troco-box" style="display:none">
-                        <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco estimado</span>
-                        <span class="pgto-troco-value" id="pgto-troco">R$ 0,00</span>
-                    </div>
-                </div>
-
-            </div>
-            <div class="modal-footer">
-                <button class="btn-modal btn-modal-cancel" onclick="fecharModal('modal-pagamento')">
-                    Cancelar
-                </button>
-                <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()" disabled>
-                    <i class="ti ti-check"></i> Confirmar venda
-                </button>
             </div>
         </div>
     </div>
-
 
     <!-- ── Formulário de submissão (POST) ── -->
     <form id="form-venda" action="/pdv/finalizar" method="POST" style="display:none">
@@ -1255,6 +1364,38 @@
         <input type="hidden" name="pagamentos" id="f-pagamentos" value="[]">
     </form>
 
+    <!-- Modal: emitir cupom? -->
+    <div class="modal-overlay" id="modal-cupom">
+        <div class="modal" style="max-width:380px;text-align:center;">
+            <div class="modal-head" style="justify-content:center;border-bottom:none;padding-bottom:0;">
+                <h3>Venda confirmada!</h3>
+            </div>
+            <div class="modal-body" style="padding-top:8px;">
+                <p style="color:var(--text-2);font-size:14px;margin-bottom:20px;">
+                    Deseja emitir o cupom para o cliente?
+                </p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button class="btn-modal btn-modal-cancel" style="flex:1;"
+                        onclick="submeterVenda(false)">
+                        <i class="ti ti-x"></i> Não
+                    </button>
+                    <button class="btn-modal btn-modal-confirm" style="flex:1;"
+                        onclick="submeterVenda(true)">
+                        <i class="ti ti-printer"></i> Sim, imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campo hidden para sinalizar impressão -->
+    <input type="hidden" name="imprimir_cupom" id="f-imprimir-cupom" value="0" form="form-venda">
+
+    <?php if ($cupomUrl = \App\Core\Session::getFlash('cupom_url')): ?>
+        <script>
+            window.open('<?= e($cupomUrl) ?>', '_blank', 'width=420,height=700,scrollbars=yes');
+        </script>
+    <?php endif; ?>
 
     <script>
         /* ─── Estado do carrinho ─── */
@@ -1308,6 +1449,21 @@
 
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.pdv-search-wrap')) divResults.classList.remove('show');
+        });
+
+        document.getElementById('pdv-grid').addEventListener('click', function(e) {
+            const card = e.target.closest('.pdv-product-card');
+            if (!card || card.classList.contains('out-of-stock')) return;
+
+            const raw = card.dataset.produto;
+            if (!raw) return;
+
+            try {
+                const produto = JSON.parse(raw);
+                addItem(produto);
+            } catch (err) {
+                console.error('Erro ao parsear produto do grid:', err, raw);
+            }
         });
 
         async function buscarProduto(q) {
@@ -1366,7 +1522,7 @@
 
             const id = parseInt(produto.id);
             // Garante que o estoque é tratado como número puro (remove problemas de máscara ou strings)
-            const estoque = parseInt(produto.estoque, 10);
+            const estoque = parseFloat(produto.estoque);
 
             if (isNaN(estoque) || estoque <= 0) {
                 alert('Produto sem estoque disponível no sistema!');
@@ -1546,6 +1702,16 @@
                 dinheiroBox.classList.remove('show');
                 document.getElementById('pgto-troco-box').style.display = 'none';
             }
+
+            const parcelasWrap = document.getElementById('pgto-parcelas-wrap');
+            parcelasWrap.style.display = forma === 'cartao_credito' ? 'block' : 'none';
+            if (forma !== 'cartao_credito') {
+                document.getElementById('pgto-parcelas').value = '1';
+            } else {
+                selecionarParcela(1);
+                atualizarSubtextoParcelas();
+            }
+
             // Preenche o campo com o restante automaticamente
             const restante = calcularRestante();
             if (restante > 0) {
@@ -1606,11 +1772,16 @@
                 valorEfetivo = Math.min(valorInput, restante);
             }
 
+            const parcelas = formaPgto === 'cartao_credito' ?
+                parseInt(document.getElementById('pgto-parcelas').value) || 1 :
+                1;
             pagamentosMisto.push({
                 forma: formaPgto,
                 valor: valorEfetivo,
-                troco
+                troco,
+                parcelas
             });
+
             document.getElementById('pgto-valor-parcial').value = '';
             document.getElementById('pgto-troco-box').style.display = 'none';
             renderPagamentosMisto();
@@ -1655,7 +1826,12 @@
                 <div style="display:flex;align-items:center;justify-content:space-between;
                             padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;gap:8px">
                     <span style="font-size:13px;font-weight:500">${nomes[p.forma] ?? p.forma}</span>
-                    <span style="font-size:13px;font-weight:600;margin-left:auto">R$ ${formatMoney(p.valor)}</span>
+                    <span style="font-size:13px;font-weight:600;margin-left:auto">
+                        R$ ${formatMoney(p.valor)}
+                        ${p.forma === 'cartao_credito' && p.parcelas > 1
+                            ? `<span style="font-size:11px;color:var(--text-2);margin-left:4px">${p.parcelas}x R$ ${formatMoney(p.valor/p.parcelas)}</span>`
+                            : ''}
+                    </span>
                     ${p.troco > 0 ? `<span style="font-size:11px;color:var(--green)">(troco R$ ${formatMoney(p.troco)})</span>` : ''}
                     <button onclick="removerPagamento(${i})"
                         style="background:none;border:none;cursor:pointer;color:var(--text-3);
@@ -1700,9 +1876,8 @@
                 unidade_sigla: i.unidade_sigla || 'UN',
             })));
 
-            document.getElementById('btn-confirmar-pgto').disabled = true;
-            document.getElementById('btn-confirmar-pgto').innerHTML = '<i class="ti ti-loader"></i> Processando...';
-            document.getElementById('form-venda').submit();
+            fecharModal('modal-pagamento');
+            document.getElementById('modal-cupom').classList.add('show');
         }
 
         /* ─── Atalhos de teclado ─── */
@@ -1724,6 +1899,13 @@
             }
         });
 
+        function submeterVenda(imprimirCupom) {
+            document.getElementById('f-imprimir-cupom').value = imprimirCupom ? '1' : '0';
+            document.getElementById('modal-cupom').classList.remove('show');
+            document.getElementById('btn-confirmar-pgto').disabled = true;
+            document.getElementById('form-venda').submit();
+        }
+
         /* ─── Helpers ─── */
         function formatMoney(v) {
             return parseFloat(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -1740,6 +1922,27 @@
 
         function abrirSangria() {
             window.location.href = '/caixa/sangria';
+        }
+
+        // ── Parcelas customizadas ──
+        function selecionarParcela(n) {
+            // marca o botão selecionado
+            document.querySelectorAll('.parcela-btn').forEach(b => {
+                b.classList.toggle('selected', parseInt(b.dataset.parcela) === n);
+            });
+            // atualiza o hidden que o restante do código já lê
+            document.getElementById('pgto-parcelas').value = n;
+            atualizarTrocoParcial();
+        }
+
+        function atualizarSubtextoParcelas() {
+            const valor = parseFloat(document.getElementById('pgto-valor-parcial').value) || 0;
+            for (let i = 2; i <= 12; i++) {
+                const el = document.getElementById('psub-' + i);
+                if (el) {
+                    el.textContent = valor > 0 ? 'R$ ' + formatMoney(valor / i) : '';
+                }
+            }
         }
 
         // --- Busca de Clientes ---

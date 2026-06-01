@@ -166,7 +166,7 @@
                     </div>
 
                     <i class="ti ti-box" style="position:absolute;right:16px;top:16px;font-size:28px;opacity:.08;"></i>
-                </div>
+                </div>,
 
             </div>
 

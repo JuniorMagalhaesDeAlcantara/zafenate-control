@@ -667,4 +667,8 @@ CREATE INDEX idx_ci_compra   ON compra_itens(compra_id);
 CREATE INDEX idx_ci_produto  ON compra_itens(produto_id);
 
 SET FOREIGN_KEY_CHECKS = 1;
- 
+
+-- Adiciona colunas para suporte a parcelamento no módulo de vendas. O campo 'parcelas' indica em quantas vezes o pagamento foi dividido (1 = à vista). O campo 'valor_parcela' é gerado automaticamente dividindo o valor total pelo número de parcelas, facilitando exibição e cálculos futuros. Essa estrutura suporta principalmente cartões de crédito, mas pode ser usada para qualquer forma de pagamento que permita parcelamento.
+ALTER TABLE venda_pagamentos
+    ADD COLUMN parcelas TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER troco,
+    ADD COLUMN valor_parcela DECIMAL(10,2) GENERATED ALWAYS AS (valor / parcelas) STORED;
