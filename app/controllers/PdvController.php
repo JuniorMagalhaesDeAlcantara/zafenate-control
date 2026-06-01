@@ -158,7 +158,7 @@ class PdvController extends Controller
                 return;
             }
 
-            $formasValidas = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito'];
+            $formasValidas = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'fiado'];
             $pagamentos    = [];
             $totalPago     = 0.0;
 

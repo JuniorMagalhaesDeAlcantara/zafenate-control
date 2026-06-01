@@ -112,4 +112,19 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/estoque/movimentar',     'EstoqueController@create');
     $r->post('/estoque/movimentar',    'EstoqueController@store');
     $r->get('/estoque/{id}/historico', 'EstoqueController@historico');
+
+    // ── Financeiro ───────────────────────────────────────────────
+    $r->get('/financeiro/pagar',                  'FinanceiroController@pagar');
+    $r->get('/financeiro/pagar/criar',            'FinanceiroController@pagarCreate');
+    $r->post('/financeiro/pagar/criar',           'FinanceiroController@pagarStore');
+    $r->post('/financeiro/pagar/{id}/baixar',     'FinanceiroController@pagarBaixar');
+    $r->post('/financeiro/pagar/{id}/cancelar',   'FinanceiroController@pagarCancelar');
+
+    $r->get('/financeiro/receber',                'FinanceiroController@receber');
+    $r->get('/financeiro/receber/criar',          'FinanceiroController@receberCreate');
+    $r->post('/financeiro/receber/criar',         'FinanceiroController@receberStore');
+    $r->post('/financeiro/receber/{id}/baixar',   'FinanceiroController@receberBaixar');
+    $r->post('/financeiro/receber/{id}/cancelar', 'FinanceiroController@receberCancelar');
+
+    $r->get('/financeiro/fluxo',                  'FinanceiroController@fluxo');
 });

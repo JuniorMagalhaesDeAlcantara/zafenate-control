@@ -281,11 +281,16 @@ class CompraController extends Controller
     // CONFIRMAR → atualiza estoque (POST /compras/{id}/confirmar)
     // ----------------------------------------------------------------
 
-    public function confirmar(Request $request, string $id): void
+    public function confirmar(Request $request, int $id): void
     {
         try {
             $usuarioId = (int)Session::get('usuario_id');
-            $this->compraModel->confirmar((int)$id, $usuarioId);
+            $this->compraModel->confirmar($id, $usuarioId);
+
+            // ✅ Gera conta a pagar automaticamente se tiver vencimento
+            $compra = $this->compraModel->buscarPorId($id);
+            (new \App\Models\Financeiro())->gerarContaPagarDeCompra($compra, $usuarioId);
+
             Session::flash('success', 'Compra confirmada! Estoque atualizado com sucesso.');
         } catch (\Exception $e) {
             Session::flash('error', $e->getMessage());

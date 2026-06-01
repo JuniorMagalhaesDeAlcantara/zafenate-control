@@ -672,3 +672,179 @@ SET FOREIGN_KEY_CHECKS = 1;
 ALTER TABLE venda_pagamentos
     ADD COLUMN parcelas TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER troco,
     ADD COLUMN valor_parcela DECIMAL(10,2) GENERATED ALWAYS AS (valor / parcelas) STORED;
+
+-- ============================================================
+-- Migration: 007_financeiro.sql
+-- Módulo Financeiro: Contas a Pagar, Receber e Fluxo de Caixa
+-- Depende de: usuarios, clientes, fornecedores, vendas, compras
+-- ============================================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET NAMES utf8mb4;
+
+-- ============================================================
+-- CATEGORIAS FINANCEIRAS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS categorias_financeiras (
+    id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nome      VARCHAR(100) NOT NULL,
+    tipo      ENUM('receita','despesa') NOT NULL,
+    cor       VARCHAR(7)   NULL COMMENT 'Hex color para UI',
+    ativo     TINYINT(1)   NOT NULL DEFAULT 1,
+    criado_em DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_catfin_nome_tipo (nome, tipo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Categorias para classificação financeira';
+
+INSERT INTO categorias_financeiras (nome, tipo, cor) VALUES
+    ('Venda de Produtos',  'receita', '#16A34A'),
+    ('Venda de Serviços',  'receita', '#2563EB'),
+    ('Receitas Diversas',  'receita', '#7C3AED'),
+    ('Fornecedores',       'despesa', '#DC2626'),
+    ('Aluguel',            'despesa', '#D97706'),
+    ('Energia Elétrica',   'despesa', '#D97706'),
+    ('Internet/Telefone',  'despesa', '#D97706'),
+    ('Salários',           'despesa', '#9333EA'),
+    ('Impostos',           'despesa', '#EF4444'),
+    ('Marketing',          'despesa', '#0891B2'),
+    ('Despesas Diversas',  'despesa', '#6B7280')
+ON DUPLICATE KEY UPDATE id=id;
+
+-- ============================================================
+-- CONTAS A PAGAR
+-- ============================================================
+CREATE TABLE IF NOT EXISTS contas_pagar (
+    id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    categoria_id         INT UNSIGNED NULL,
+    fornecedor_id        INT UNSIGNED NULL,
+    usuario_id           INT UNSIGNED NOT NULL,
+
+    -- Origem automática
+    compra_id            INT UNSIGNED NULL COMMENT 'Preenchido quando gerado por uma compra',
+
+    descricao            VARCHAR(200) NOT NULL,
+    valor                DECIMAL(10,2) NOT NULL,
+    valor_pago           DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    vencimento           DATE NOT NULL,
+    data_pagamento       DATE NULL,
+    forma_pagamento      ENUM('boleto','pix','deposito','cartao','dinheiro','cheque','outros') NULL,
+
+    status               ENUM('aberto','parcial','pago','vencido','cancelado') NOT NULL DEFAULT 'aberto',
+
+    documento            VARCHAR(50)  NULL COMMENT 'Número NF, boleto, etc.',
+    observacao           TEXT NULL,
+    motivo_cancelamento  VARCHAR(255) NULL,
+
+    criado_em            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_cpagar_categoria
+        FOREIGN KEY (categoria_id) REFERENCES categorias_financeiras(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    CONSTRAINT fk_cpagar_fornecedor
+        FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    CONSTRAINT fk_cpagar_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_cpagar_compra
+        FOREIGN KEY (compra_id) REFERENCES compras(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Contas a pagar';
+
+CREATE INDEX idx_cpagar_status      ON contas_pagar(status);
+CREATE INDEX idx_cpagar_vencimento  ON contas_pagar(vencimento);
+CREATE INDEX idx_cpagar_fornecedor  ON contas_pagar(fornecedor_id);
+CREATE INDEX idx_cpagar_compra      ON contas_pagar(compra_id);
+
+-- ============================================================
+-- CONTAS A RECEBER
+-- ============================================================
+CREATE TABLE IF NOT EXISTS contas_receber (
+    id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    categoria_id         INT UNSIGNED NULL,
+    cliente_id           INT UNSIGNED NULL,
+    usuario_id           INT UNSIGNED NOT NULL,
+
+    -- Origem automática
+    venda_id             INT UNSIGNED NULL COMMENT 'Preenchido quando gerado por uma venda a prazo',
+
+    descricao            VARCHAR(200) NOT NULL,
+    valor                DECIMAL(10,2) NOT NULL,
+    valor_recebido       DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    vencimento           DATE NOT NULL,
+    data_recebimento     DATE NULL,
+    forma_recebimento    ENUM('boleto','pix','deposito','cartao','dinheiro','cheque','outros') NULL,
+
+    status               ENUM('aberto','parcial','recebido','vencido','cancelado') NOT NULL DEFAULT 'aberto',
+
+    documento            VARCHAR(50)  NULL,
+    observacao           TEXT NULL,
+    motivo_cancelamento  VARCHAR(255) NULL,
+
+    criado_em            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_creceber_categoria
+        FOREIGN KEY (categoria_id) REFERENCES categorias_financeiras(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    CONSTRAINT fk_creceber_cliente
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    CONSTRAINT fk_creceber_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_creceber_venda
+        FOREIGN KEY (venda_id) REFERENCES vendas(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Contas a receber';
+
+CREATE INDEX idx_creceber_status     ON contas_receber(status);
+CREATE INDEX idx_creceber_vencimento ON contas_receber(vencimento);
+CREATE INDEX idx_creceber_cliente    ON contas_receber(cliente_id);
+CREATE INDEX idx_creceber_venda      ON contas_receber(venda_id);
+
+SET FOREIGN_KEY_CHECKS = 1;  
+
+-- ============================================================
+-- ZAFENATE CONTROL — Migration: Ajustes contas_receber
+-- Adiciona colunas de parcelas e previsão de pagamento
+-- ============================================================
+
+-- Parcelas (para crédito parcelado e fiado)
+ALTER TABLE contas_receber
+    ADD COLUMN IF NOT EXISTS numero_parcela TINYINT UNSIGNED NOT NULL DEFAULT 1
+        COMMENT 'Número desta parcela (1, 2, 3...)'
+        AFTER vencimento,
+    ADD COLUMN IF NOT EXISTS total_parcelas TINYINT UNSIGNED NOT NULL DEFAULT 1
+        COMMENT 'Total de parcelas da venda'
+        AFTER numero_parcela,
+    ADD COLUMN IF NOT EXISTS valor_recebido DECIMAL(10,2) NOT NULL DEFAULT 0.00
+        AFTER valor,
+    ADD COLUMN IF NOT EXISTS data_recebimento DATE NULL
+        AFTER valor_recebido,
+    ADD COLUMN IF NOT EXISTS motivo_cancelamento VARCHAR(255) NULL;
+
+-- Índice útil para buscar parcelas de uma venda
+CREATE INDEX IF NOT EXISTS idx_cr_venda_parcela
+    ON contas_receber(venda_id, numero_parcela);
+
+-- Ajuste para garantir que o número da parcela seja sempre menor ou igual ao total de parcelas
+ALTER TABLE contas_receber
+    ADD COLUMN IF NOT EXISTS numero_parcela  TINYINT UNSIGNED NOT NULL DEFAULT 1
+        COMMENT 'Número desta parcela'
+        AFTER venda_id,
+    ADD COLUMN IF NOT EXISTS total_parcelas  TINYINT UNSIGNED NOT NULL DEFAULT 1
+        COMMENT 'Total de parcelas da operação'
+        AFTER numero_parcela;

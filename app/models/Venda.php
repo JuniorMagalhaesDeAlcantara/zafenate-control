@@ -112,6 +112,66 @@ class Venda
                 ]);
             }
 
+            foreach ($pagamentos as $pgto) {
+                // Gera contas a receber para formas a prazo
+                if ($pgto['forma'] === 'fiado') {
+                    // Fiado: 1 parcela única, vencimento em 30 dias
+                    $this->db->execute("
+                        INSERT INTO contas_receber
+                            (venda_id, cliente_id, usuario_id, descricao,
+                             valor, vencimento, forma_recebimento,
+                             numero_parcela, total_parcelas, status)
+                        VALUES
+                            (:venda_id, :cliente_id, :usuario_id, :descricao,
+                             :valor, :vencimento, 'fiado',
+                             1, 1, 'aberto')
+                    ", [
+                        'venda_id'   => $vendaId,
+                        'cliente_id' => $dados['cliente_id'],
+                        'usuario_id' => $dados['usuario_id'],
+                        'descricao'  => "Venda #{$dados['numero']} — Fiado",
+                        'valor'      => $pgto['valor'],
+                        'vencimento' => date('Y-m-d', strtotime('+30 days')),
+                    ]);
+                } elseif ($pgto['forma'] === 'cartao_credito') {
+                    // Cartão crédito: gera N parcelas mensais
+                    $parcelas     = max(1, (int)($pgto['parcelas'] ?? 1));
+                    $valorParcela = round($pgto['valor'] / $parcelas, 2);
+                    // Ajuste de centavos na última parcela
+                    $totalDistribuido = round($valorParcela * ($parcelas - 1), 2);
+
+                    for ($n = 1; $n <= $parcelas; $n++) {
+                        $valor      = ($n === $parcelas)
+                            ? round($pgto['valor'] - $totalDistribuido, 2)
+                            : $valorParcela;
+                        $vencimento = date('Y-m-d', strtotime("+{$n} months"));
+                        $descricao  = $parcelas > 1
+                            ? "Venda #{$dados['numero']} — Crédito {$n}/{$parcelas}"
+                            : "Venda #{$dados['numero']} — Crédito à vista";
+
+                        $this->db->execute("
+                            INSERT INTO contas_receber
+                                (venda_id, cliente_id, usuario_id, descricao,
+                                 valor, vencimento, forma_recebimento,
+                                 numero_parcela, total_parcelas, status)
+                            VALUES
+                                (:venda_id, :cliente_id, :usuario_id, :descricao,
+                                 :valor, :vencimento, 'cartao_credito',
+                                 :num_parc, :tot_parc, 'aberto')
+                        ", [
+                            'venda_id'   => $vendaId,
+                            'cliente_id' => $dados['cliente_id'],
+                            'usuario_id' => $dados['usuario_id'],
+                            'descricao'  => $descricao,
+                            'valor'      => $valor,
+                            'vencimento' => $vencimento,
+                            'num_parc'   => $n,
+                            'tot_parc'   => $parcelas,
+                        ]);
+                    }
+                }
+            }
+
             // 5. Atualiza totais do caixa
             $dinheiro = array_reduce($pagamentos, function (float $c, array $p): float {
                 return $p['forma'] === 'dinheiro'

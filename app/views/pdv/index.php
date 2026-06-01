@@ -1246,6 +1246,9 @@
                     <button class="pgto-forma-btn" data-forma="cartao_credito" onclick="selecionarForma('cartao_credito')">
                         <i class="ti ti-credit-card"></i> Crédito
                     </button>
+                    <button class="pgto-forma-btn" data-forma="fiado" onclick="selecionarForma('fiado')">
+                        <i class="ti ti-user-dollar"></i> A Prazo
+                    </button>
                 </div>
 
                 <!-- Parcelas — só aparece para crédito -->
@@ -1875,6 +1878,13 @@
                 codigo: i.codigo || 'SEM_COD',
                 unidade_sigla: i.unidade_sigla || 'UN',
             })));
+
+            const temFiado = pagamentosMisto.some(p => p.forma === 'fiado');
+            const clienteId = document.getElementById('f-cliente-id').value;
+            if (temFiado && (!clienteId || clienteId === '1')) {
+                alert('Para pagamento Fiado, selecione um cliente cadastrado.');
+                return;
+            }
 
             fecharModal('modal-pagamento');
             document.getElementById('modal-cupom').classList.add('show');
