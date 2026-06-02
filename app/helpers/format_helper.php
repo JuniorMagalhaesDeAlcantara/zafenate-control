@@ -83,4 +83,23 @@ if (!function_exists('redirect')) {
         header('Location: ' . $uri);
         exit;
     }
+
+if (!function_exists('formatarFormaPagamento')) {
+        function formatarFormaPagamento(?string $forma): string
+        {
+            return match ($forma) {
+                'dinheiro'       => 'Dinheiro',
+                'pix'            => 'PIX',
+                'cartao_debito'  => 'Cartão Débito',
+                'cartao_credito' => 'Cartão Crédito',
+                'fiado'          => 'A Prazo',
+                'voucher'        => 'Voucher',
+                'boleto'         => 'Boleto',
+                'deposito'       => 'Depósito',
+                'cheque'         => 'Cheque',
+                'outros'         => 'Outros',
+                default          => ucfirst((string) $forma),
+            };
+        }
+    }
 }

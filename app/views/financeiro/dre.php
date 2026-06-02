@@ -158,6 +158,7 @@
                             'pix'            => ['📱', 'PIX'],
                             'cartao_debito'  => ['💳', 'Débito'],
                             'cartao_credito' => ['💳', 'Crédito'],
+                            'fiado'          => ['📋', 'A Prazo'],  
                         ];
                         foreach ($por_forma as $f):
                             $pct = $receita_liquida > 0 ? ($f['total'] / $receita_liquida * 100) : 0;

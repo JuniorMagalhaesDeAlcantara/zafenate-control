@@ -16,6 +16,8 @@ class Venda
 
     public function salvarVenda(array $dados, array $itens, array $pagamentos): int
     {
+        error_log('ENTROU EM salvarVenda()');
+
         return $this->db->transaction(function () use ($dados, $itens, $pagamentos) {
 
             // 1. Próximo número sequencial
@@ -129,9 +131,9 @@ class Venda
                         'venda_id'   => $vendaId,
                         'cliente_id' => $dados['cliente_id'],
                         'usuario_id' => $dados['usuario_id'],
-                        'descricao'  => "Venda #{$dados['numero']} — Fiado",
+                        'descricao'  => "Venda #{$dados['numero']} — A Prazo",
                         'valor'      => $pgto['valor'],
-                        'vencimento' => date('Y-m-d', strtotime('+30 days')),
+                        'vencimento' => $pgto['vencimento'] ?? date('Y-m-d', strtotime('+30 days')),
                     ]);
                 } elseif ($pgto['forma'] === 'cartao_credito') {
                     // Cartão crédito: gera N parcelas mensais
@@ -146,9 +148,8 @@ class Venda
                             : $valorParcela;
                         $vencimento = date('Y-m-d', strtotime("+{$n} months"));
                         $descricao  = $parcelas > 1
-                            ? "Venda #{$dados['numero']} — Crédito {$n}/{$parcelas}"
-                            : "Venda #{$dados['numero']} — Crédito à vista";
-
+                            ? "Venda #{$dados['numero']} — Cartão Crédito {$n}/{$parcelas}"
+                            : "Venda #{$dados['numero']} — Cartão Crédito à vista";
                         $this->db->execute("
                             INSERT INTO contas_receber
                                 (venda_id, cliente_id, usuario_id, descricao,
@@ -215,9 +216,24 @@ class Venda
 
     public function pagamentosDaVenda(int $vendaId): array
     {
-        return $this->db->fetchAll(
-            "SELECT * FROM venda_pagamentos WHERE venda_id = :venda_id ORDER BY id",
+        $pagamentos = $this->db->fetchAll(
+            "SELECT * FROM venda_pagamentos
+         WHERE venda_id = :venda_id
+         ORDER BY id",
             ['venda_id' => $vendaId]
         );
+
+        foreach ($pagamentos as &$pgto) {
+            $pgto['forma_label'] = match ($pgto['forma']) {
+                'fiado'          => 'A Prazo',   // ← era só isso que faltava
+                'pix'            => 'PIX',
+                'cartao_debito'  => 'Cartão Débito',
+                'cartao_credito' => 'Cartão Crédito',
+                'dinheiro'       => 'Dinheiro',
+                default          => ucfirst($pgto['forma']),
+            };
+        }
+
+        return $pagamentos;
     }
 }

@@ -184,8 +184,9 @@
                                                 <?= date('d/m/Y', strtotime($m['data'])) ?>
                                             </td>
                                             <td style="padding:8px 12px 8px 0;max-width:180px;">
-                                                <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= e($m['descricao']) ?>">
-                                                    <?= e($m['descricao']) ?>
+                                                <div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                                    title="<?= e(str_replace('Fiado', 'A Prazo', $m['descricao'])) ?>">
+                                                    <?= e(str_replace('Fiado', 'A Prazo', $m['descricao'])) ?>
                                                 </div>
                                             </td>
                                             <td style="padding:8px 12px 8px 0;">
@@ -245,9 +246,11 @@
                                         style="font-size:14px;color:<?= $p['tipo'] === 'receita' ? 'var(--color-success,#22c55e)' : 'var(--color-danger,#ef4444)' ?>;"></i>
                                 </div>
                                 <div style="flex:1;min-width:0;">
-                                    <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<?= e($p['descricao']) ?>">
-                                        <?= e($p['descricao']) ?>
+                                    <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                        title="<?= e(str_replace('Fiado', 'A Prazo', $p['descricao'])) ?>">
+                                        <?= e(str_replace('Fiado', 'A Prazo', $p['descricao'])) ?>
                                     </div>
+
                                     <div style="font-size:11px;color:var(--text-tertiary);">
                                         <?= date('d/m', strtotime($p['data'])) ?> · <?= e($p['origem']) ?>
                                     </div>

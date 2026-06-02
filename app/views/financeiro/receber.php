@@ -134,10 +134,16 @@
                             <?php foreach ($contas as $c): ?>
                                 <tr>
                                     <td>
-                                        <div style="font-weight:500;"><?= e($c['descricao']) ?></div>
+                                        <div style="font-weight:500;">
+                                            <?= e(str_replace('Fiado', 'A Prazo', $c['descricao'])) ?>
+                                        </div>
+
                                         <?php if (!empty($c['documento'])): ?>
-                                            <div style="font-size:11px;color:var(--text-tertiary);">Doc: <?= e($c['documento']) ?></div>
+                                            <div style="font-size:11px;color:var(--text-tertiary);">
+                                                Doc: <?= e($c['documento']) ?>
+                                            </div>
                                         <?php endif; ?>
+
                                         <?php if (!empty($c['venda_id'])): ?>
                                             <div style="font-size:11px;color:var(--text-tertiary);">
                                                 <i class="ti ti-tag" style="font-size:10px;"></i> Venda a prazo

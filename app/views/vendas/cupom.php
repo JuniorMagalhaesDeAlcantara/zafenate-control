@@ -200,6 +200,25 @@
     ];
     ?>
 
+    <?php
+
+    if (!function_exists('formatarFormaPagamento')) {
+        function formatarFormaPagamento(?string $forma): string
+        {
+            return match ($forma) {
+                'dinheiro'       => 'Dinheiro',
+                'pix'            => 'PIX',
+                'cartao_debito'  => 'Cartão Débito',
+                'cartao_credito' => 'Cartão Crédito',
+                'fiado'          => 'A Prazo',
+                'voucher'        => 'Voucher',
+                'outros'         => 'Outros',
+                default          => ucfirst((string) $forma),
+            };
+        }
+    }
+    ?>
+
     <!-- Cabeçalho empresa -->
     <div class="empresa-nome"><?= e($nomeEmpresa) ?></div>
     <?php if ($slogan): ?>
@@ -292,7 +311,7 @@
         $trocoTotal += (float)$pgto['troco'];
     ?>
         <div class="pgto-row">
-            <span><?= e($nomesPgto[$pgto['forma']] ?? $pgto['forma']) ?></span>
+            <span><?= e(formatarFormaPagamento($pgto['forma'])) ?></span>
             <span>R$ <?= number_format($pgto['valor'], 2, ',', '.') ?></span>
         </div>
     <?php endforeach; ?>

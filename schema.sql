@@ -848,3 +848,15 @@ ALTER TABLE contas_receber
     ADD COLUMN IF NOT EXISTS total_parcelas  TINYINT UNSIGNED NOT NULL DEFAULT 1
         COMMENT 'Total de parcelas da operação'
         AFTER numero_parcela;
+
+-- Correção do ENUM de forma de pagamento para incluir 'fiado' e 'voucher', que são formas comuns de venda a prazo e promoções, respectivamente. Isso permite registrar corretamente essas transações no módulo de vendas.
+ ALTER TABLE venda_pagamentos
+MODIFY COLUMN forma ENUM(
+    'dinheiro',
+    'pix',
+    'cartao_debito',
+    'cartao_credito',
+    'fiado',
+    'voucher',
+    'outros'
+) NOT NULL;       

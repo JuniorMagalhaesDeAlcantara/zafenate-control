@@ -88,6 +88,7 @@
                                     'pix'            => '⚡ PIX',
                                     'cartao_debito'  => '💳 Débito',
                                     'cartao_credito' => '💳 Crédito',
+                                    'fiado'          => '📅 A Prazo',
                                     'voucher'        => '🎟 Voucher',
                                     'outros'         => '• Outros',
                                 ];

@@ -88,7 +88,8 @@
                             <option value="dinheiro" <?= $filtros['forma_pagamento'] === 'dinheiro'       ? 'selected' : '' ?>>Dinheiro</option>
                             <option value="pix" <?= $filtros['forma_pagamento'] === 'pix'            ? 'selected' : '' ?>>PIX</option>
                             <option value="cartao_debito" <?= $filtros['forma_pagamento'] === 'cartao_debito'  ? 'selected' : '' ?>>Débito</option>
-                            <option value="cartao_credito" <?= $filtros['forma_pagamento'] === 'cartao_credito' ? 'selected' : '' ?>>Crédito</option>
+                                                        <option value="cartao_credito" <?= $filtros['forma_pagamento'] === 'cartao_credito' ? 'selected' : '' ?>>Crédito</option>
+                            <option value="fiado" <?= $filtros['forma_pagamento'] === 'fiado' ? 'selected' : '' ?>>A Prazo</option> 
                         </select>
                     </div>
 
@@ -150,7 +151,7 @@
                                     <td>
                                         <?php
                                         $formas = array_filter(explode(',', $v['formas_pagamento'] ?? ''));
-                                        $labels = ['dinheiro' => 'Dinheiro', 'pix' => 'PIX', 'cartao_debito' => 'Débito', 'cartao_credito' => 'Crédito'];
+                                        $labels = ['dinheiro' => 'Dinheiro', 'pix' => 'PIX', 'cartao_debito' => 'Débito', 'cartao_credito' => 'Crédito', 'fiado' => 'A Prazo'];
                                         foreach ($formas as $f): ?>
                                             <span class="badge badge-neutral" style="font-size:10px;">
                                                 <?= e($labels[$f] ?? $f) ?>

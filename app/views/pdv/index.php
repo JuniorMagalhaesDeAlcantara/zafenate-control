@@ -1309,6 +1309,34 @@
                     <input type="hidden" id="pgto-parcelas" value="1">
                 </div>
 
+                <!-- Fiado: aviso de cliente + vencimento -->
+                <div id="pgto-fiado-box" style="display:none;margin-bottom:16px">
+
+                    <div id="pgto-fiado-aviso"
+                        style="display:none;align-items:center;gap:8px;
+                padding:10px 12px;margin-bottom:12px;
+                background:#FEF3C7;border-radius:6px;
+                font-size:12px;color:#92400E">
+                        <i class="ti ti-alert-triangle"></i>
+                        Selecione um cliente antes de usar A Prazo.
+                        <button type="button"
+                            onclick="fecharModal('modal-pagamento');setTimeout(()=>document.getElementById('busca-cliente').focus(),100)"
+                            style="margin-left:auto;background:#92400E;color:#fff;border:none;
+                       border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer">
+                            Selecionar cliente
+                        </button>
+                    </div>
+
+                    <div class="pgto-label">Vencimento</div>
+                    <input type="date"
+                        id="pgto-fiado-vencimento"
+                        class="pgto-input"
+                        style="font-size:14px;text-align:left">
+                    <div style="font-size:11px;color:var(--text-3);margin-top:4px">
+                        Padrão: 30 dias a partir de hoje
+                    </div>
+                </div>
+
                 <!-- Valor do pagamento atual -->
                 <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
                     <div style="flex:1">
@@ -1320,37 +1348,37 @@
                             placeholder="0,00"
                             step="0.01"
                             min="0.01"
-                            oninput="atualizarTrocoParcial(); atualizarSubtextoParcelas();"
-                            </div>
-                        <button
-                            id="btn-add-pgto"
-                            onclick="adicionarPagamento()"
-                            style="padding:11px 18px;background:var(--primary);color:#fff;border:none;border-radius:6px;
+                            oninput="atualizarTrocoParcial(); atualizarSubtextoParcelas();">
+                    </div>
+                    <button
+                        id="btn-add-pgto"
+                        onclick="adicionarPagamento()"
+                        style="padding:11px 18px;background:var(--primary);color:#fff;border:none;border-radius:6px;
                                font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;
                                display:flex;align-items:center;gap:6px;white-space:nowrap;height:46px">
-                            <i class="ti ti-plus"></i> Adicionar
-                        </button>
-                    </div>
-
-                    <!-- Troco (só dinheiro) -->
-                    <div class="pgto-dinheiro-box show" id="pgto-dinheiro-box">
-                        <div class="pgto-troco-box" id="pgto-troco-box" style="display:none">
-                            <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco estimado</span>
-                            <span class="pgto-troco-value" id="pgto-troco">R$ 0,00</span>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-modal btn-modal-cancel" onclick="fecharModal('modal-pagamento')">
-                        Cancelar
-                    </button>
-                    <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()" disabled>
-                        <i class="ti ti-check"></i> Confirmar venda
+                        <i class="ti ti-plus"></i> Adicionar
                     </button>
                 </div>
+
+                <!-- Troco (só dinheiro) -->
+                <div class="pgto-dinheiro-box show" id="pgto-dinheiro-box">
+                    <div class="pgto-troco-box" id="pgto-troco-box" style="display:none">
+                        <span class="pgto-troco-label"><i class="ti ti-coins"></i> Troco estimado</span>
+                        <span class="pgto-troco-value" id="pgto-troco">R$ 0,00</span>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="fecharModal('modal-pagamento')">
+                    Cancelar
+                </button>
+                <button class="btn-modal btn-modal-confirm" id="btn-confirmar-pgto" onclick="confirmarVenda()" disabled>
+                    <i class="ti ti-check"></i> Confirmar venda
+                </button>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- ── Formulário de submissão (POST) ── -->
@@ -1698,6 +1726,7 @@
                 b.classList.toggle('selected', b.dataset.forma === forma);
             });
 
+            // Troco — só dinheiro
             const dinheiroBox = document.getElementById('pgto-dinheiro-box');
             if (forma === 'dinheiro') {
                 dinheiroBox.classList.add('show');
@@ -1706,6 +1735,7 @@
                 document.getElementById('pgto-troco-box').style.display = 'none';
             }
 
+            // Parcelas — só crédito
             const parcelasWrap = document.getElementById('pgto-parcelas-wrap');
             parcelasWrap.style.display = forma === 'cartao_credito' ? 'block' : 'none';
             if (forma !== 'cartao_credito') {
@@ -1715,7 +1745,28 @@
                 atualizarSubtextoParcelas();
             }
 
-            // Preenche o campo com o restante automaticamente
+            // Fiado — mostra bloco de vencimento e valida cliente
+            const fiadoBox = document.getElementById('pgto-fiado-box');
+            if (forma === 'fiado') {
+                fiadoBox.style.display = 'block';
+
+                // Define padrão de 30 dias se ainda não preenchido
+                const inputVenc = document.getElementById('pgto-fiado-vencimento');
+                if (!inputVenc.value) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 30);
+                    inputVenc.value = d.toISOString().split('T')[0];
+                }
+
+                // Avisa se não tem cliente selecionado
+                const clienteId = document.getElementById('f-cliente-id').value;
+                const aviso = document.getElementById('pgto-fiado-aviso');
+                aviso.style.display = (!clienteId || clienteId === '1') ? 'flex' : 'none';
+            } else {
+                fiadoBox.style.display = 'none';
+            }
+
+            // Preenche valor restante automaticamente
             const restante = calcularRestante();
             if (restante > 0) {
                 document.getElementById('pgto-valor-parcial').value = restante.toFixed(2);
@@ -1725,15 +1776,22 @@
 
         function calcularRestante() {
             const total = parseFloat(document.getElementById('f-total').value) || 0;
-            const pago = pagamentosMisto.reduce((s, p) => s + p.valor, 0);
-            return Math.max(total - pago, 0);
+            const totalPago = pagamentosMisto.reduce((s, p) => s + p.valor, 0);
+            return Math.max(total - totalPago, 0);
         }
 
         function atualizarRestante() {
-            const restante = calcularRestante();
+            const total = parseFloat(document.getElementById('f-total').value) || 0;
+
+            // Soma tudo — dinheiro, pix, débito, crédito E fiado
+            const totalPago = pagamentosMisto.reduce((s, p) => s + p.valor, 0);
+            const restante = Math.max(total - totalPago, 0);
+
             document.getElementById('pgto-restante-display').textContent = 'R$ ' + formatMoney(restante);
+
+            // Habilita confirmar quando restante zerou e há pelo menos 1 pagamento
             const btnConf = document.getElementById('btn-confirmar-pgto');
-            btnConf.disabled = restante > 0.001 || pagamentosMisto.length === 0;
+            btnConf.disabled = !(pagamentosMisto.length > 0 && restante <= 0.001);
         }
 
         function atualizarTrocoParcial() {
@@ -1758,7 +1816,37 @@
                 document.getElementById('pgto-valor-parcial').focus();
                 return;
             }
+
             const restante = calcularRestante();
+
+            // Fiado: cliente obrigatório + vencimento obrigatório
+            if (formaPgto === 'fiado') {
+                const clienteId = document.getElementById('f-cliente-id').value;
+                if (!clienteId || clienteId === '1') {
+                    document.getElementById('pgto-fiado-aviso').style.display = 'flex';
+                    alert('Selecione um cliente cadastrado para venda A prazo.');
+                    return;
+                }
+                const venc = document.getElementById('pgto-fiado-vencimento').value;
+                if (!venc) {
+                    alert('Informe o vencimento da venda A prazo.');
+                    return;
+                }
+                // Fiado: lança o valor total como dívida, zera o restante visualmente
+                const restante = calcularRestante();
+                pagamentosMisto.push({
+                    forma: 'fiado',
+                    valor: parseFloat(restante.toFixed(2)), // sempre o valor exato que falta
+                    troco: 0,
+                    parcelas: 1,
+                    vencimento: venc
+                });
+                document.getElementById('pgto-valor-parcial').value = '';
+                renderPagamentosMisto();
+                atualizarRestante();
+                return;
+            }
+
             if (restante <= 0.001) {
                 alert('O total já está coberto pelos pagamentos adicionados.');
                 return;
@@ -1769,20 +1857,21 @@
 
             if (formaPgto === 'dinheiro' && valorInput > restante + 0.001) {
                 troco = parseFloat((valorInput - restante).toFixed(2));
-                valorEfetivo = valorInput; // registra o que foi recebido; troco será devolvido
+                valorEfetivo = valorInput;
             } else {
-                // Para cartão/pix, não pode receber mais do que o restante
                 valorEfetivo = Math.min(valorInput, restante);
             }
 
             const parcelas = formaPgto === 'cartao_credito' ?
                 parseInt(document.getElementById('pgto-parcelas').value) || 1 :
                 1;
+
             pagamentosMisto.push({
                 forma: formaPgto,
                 valor: valorEfetivo,
-                troco,
-                parcelas
+                troco: troco,
+                parcelas: parcelas,
+                vencimento: null
             });
 
             document.getElementById('pgto-valor-parcial').value = '';
@@ -1790,7 +1879,6 @@
             renderPagamentosMisto();
             atualizarRestante();
 
-            // Preenche automaticamente o restante para agilizar
             const novoRestante = calcularRestante();
             if (novoRestante > 0.001) {
                 document.getElementById('pgto-valor-parcial').value = novoRestante.toFixed(2);
@@ -1819,51 +1907,71 @@
             }
 
             lista.style.display = 'block';
+
             const nomes = {
                 dinheiro: '💵 Dinheiro',
                 pix: '📱 PIX',
                 cartao_debito: '💳 Débito',
-                cartao_credito: '💳 Crédito'
+                cartao_credito: '💳 Crédito',
+                fiado: '🤝 A prazo'
             };
+
             container.innerHTML = pagamentosMisto.map((p, i) => `
-                <div style="display:flex;align-items:center;justify-content:space-between;
-                            padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;gap:8px">
-                    <span style="font-size:13px;font-weight:500">${nomes[p.forma] ?? p.forma}</span>
-                    <span style="font-size:13px;font-weight:600;margin-left:auto">
-                        R$ ${formatMoney(p.valor)}
-                        ${p.forma === 'cartao_credito' && p.parcelas > 1
-                            ? `<span style="font-size:11px;color:var(--text-2);margin-left:4px">${p.parcelas}x R$ ${formatMoney(p.valor/p.parcelas)}</span>`
-                            : ''}
-                    </span>
-                    ${p.troco > 0 ? `<span style="font-size:11px;color:var(--green)">(troco R$ ${formatMoney(p.troco)})</span>` : ''}
-                    <button onclick="removerPagamento(${i})"
-                        style="background:none;border:none;cursor:pointer;color:var(--text-3);
-                               font-size:14px;padding:2px 4px;transition:color 0.12s"
-                        onmouseover="this.style.color='var(--red)'"
-                        onmouseout="this.style.color='var(--text-3)'">
-                        <i class="ti ti-x"></i>
-                    </button>
-                </div>
-            `).join('');
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:8px 12px;background:var(--bg);border-radius:6px;
+                    margin-bottom:6px;gap:8px;
+                    ${p.forma === 'fiado' ? 'border:1px solid #FCD34D' : ''}">
+            <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:13px;font-weight:500">${nomes[p.forma] ?? p.forma}</span>
+                ${p.forma === 'fiado' && p.vencimento
+                    ? `<span style="font-size:11px;color:var(--amber)">
+                           <i class="ti ti-calendar" style="font-size:10px"></i>
+                           Vence ${formatDate(p.vencimento)}
+                       </span>`
+                    : ''}
+                ${p.forma === 'cartao_credito' && p.parcelas > 1
+                    ? `<span style="font-size:11px;color:var(--text-2)">
+                           ${p.parcelas}x R$ ${formatMoney(p.valor / p.parcelas)}
+                       </span>`
+                    : ''}
+            </div>
+            <span style="font-size:13px;font-weight:600;margin-left:auto">
+                R$ ${formatMoney(p.valor)}
+            </span>
+            ${p.troco > 0
+                ? `<span style="font-size:11px;color:var(--green)">(troco R$ ${formatMoney(p.troco)})</span>`
+                : ''}
+            <button onclick="removerPagamento(${i})"
+                style="background:none;border:none;cursor:pointer;color:var(--text-3);
+                       font-size:14px;padding:2px 4px;transition:color 0.12s"
+                onmouseover="this.style.color='var(--red)'"
+                onmouseout="this.style.color='var(--text-3)'">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+    `).join('');
         }
 
         function confirmarVenda() {
             if (!carrinho.length) return;
+
             if (calcularRestante() > 0.001) {
                 alert('Ainda há saldo restante a pagar.');
                 return;
             }
 
-            const campoId = document.getElementById('f-cliente-id');
-            const clienteIdFinal = campoId.value; // Pega o valor real (que deve ser o id do cliente selecionado)
+            // Valida fiado ANTES de fechar o modal
+            const temFiado = pagamentosMisto.some(p => p.forma === 'fiado');
+            const clienteId = document.getElementById('f-cliente-id').value;
 
-            console.log('INPUT HIDDEN:', document.getElementById('f-cliente-id'));
-            console.log('VALOR:', document.getElementById('f-cliente-id').value);
+            if (temFiado && (!clienteId || clienteId === '1')) {
+                document.getElementById('pgto-fiado-aviso').style.display = 'flex';
+                alert('⚠️ Para venda A prazo, selecione um cliente cadastrado.');
+                return; // modal permanece aberto
+            }
 
-            console.log("ID do cliente enviado para o form:", clienteIdFinal);
-
-            // Agora, antes de enviar o form, certifique-se de que o input oculto esteja com esse ID
-            document.getElementById('f-cliente-id').value = clienteIdFinal;
+            // Monta os campos ocultos do form
+            document.getElementById('f-cliente-id').value = clienteId;
             document.getElementById('f-pagamentos').value = JSON.stringify(pagamentosMisto);
 
             const subtotal = carrinho.reduce((s, i) => s + (i.preco * i.qty), 0);
@@ -1878,13 +1986,6 @@
                 codigo: i.codigo || 'SEM_COD',
                 unidade_sigla: i.unidade_sigla || 'UN',
             })));
-
-            const temFiado = pagamentosMisto.some(p => p.forma === 'fiado');
-            const clienteId = document.getElementById('f-cliente-id').value;
-            if (temFiado && (!clienteId || clienteId === '1')) {
-                alert('Para pagamento Fiado, selecione um cliente cadastrado.');
-                return;
-            }
 
             fecharModal('modal-pagamento');
             document.getElementById('modal-cupom').classList.add('show');
@@ -2075,6 +2176,12 @@
                 clienteResults.classList.remove('show');
             }
         });
+
+        function formatDate(str) {
+            if (!str) return '';
+            const [y, m, d] = str.split('-');
+            return `${d}/${m}/${y}`;
+        }
     </script>
 
 </body>

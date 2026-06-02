@@ -162,6 +162,7 @@ class PdvController extends Controller
             $pagamentos    = [];
             $totalPago     = 0.0;
 
+            // Substitua o foreach de validação das formas:
             foreach ($pagamentosRaw as $p) {
                 $forma = $p['forma'] ?? '';
                 $valor = (float) ($p['valor'] ?? 0);
@@ -176,19 +177,55 @@ class PdvController extends Controller
                 $parcelas = isset($p['parcelas']) ? (int) $p['parcelas'] : 1;
 
                 $pagamentos[] = [
-                    'forma'    => $forma,
-                    'valor'    => $valor,
-                    'troco'    => $troco,
-                    'parcelas' => $parcelas,
+                    'forma'      => $forma,
+                    'valor'      => $valor,
+                    'troco'      => $troco,
+                    'parcelas'   => $parcelas,
+                    'vencimento' => $p['vencimento'] ?? null,
                 ];
-                $totalPago   += $valor - $troco; // valor líquido recebido
+
+                // ✅ Fiado não conta como pagamento recebido
+                if ($forma !== 'fiado') {
+                    $totalPago += $valor - $troco;
+                }
             }
 
             error_log(print_r([
                 'cliente_id_antes_salvar' => $clienteId
             ], true));
             // Validação: total pago (líquido) deve cobrir o total da venda
-            if (round($totalPago, 2) < round($total, 2)) {
+            error_log('========================');
+            error_log('TOTAL PAGO: ' . $totalPago);
+            error_log('TOTAL VENDA: ' . $total);
+            error_log('PAGAMENTOS: ' . json_encode($pagamentos));
+
+            $valorFiado = 0;
+
+            foreach ($pagamentos as $p) {
+                if ($p['forma'] === 'fiado') {
+                    $valorFiado += $p['valor'];
+                }
+            }
+
+            $valorFiado = 0;
+
+            foreach ($pagamentos as $p) {
+                if ($p['forma'] === 'fiado') {
+                    $valorFiado += $p['valor'];
+                }
+            }
+
+            $valorFiado = 0;
+
+            foreach ($pagamentos as $p) {
+                if ($p['forma'] === 'fiado') {
+                    $valorFiado += $p['valor'];
+                }
+            }
+
+            if (round($totalPago + $valorFiado, 2) < round($total, 2)) {
+                error_log('CAIU NA VALIDACAO DE TOTAL PAGO');
+
                 Session::flash('error', sprintf(
                     'Total pago (R$ %.2f) inferior ao total da venda (R$ %.2f).',
                     $totalPago,
@@ -198,7 +235,7 @@ class PdvController extends Controller
                 return;
             }
 
-
+            error_log('CHEGOU NO salvarVenda()');
             $vendaId = $this->vendaModel->salvarVenda(
                 dados: [
                     'caixa_id'       => $caixaId,

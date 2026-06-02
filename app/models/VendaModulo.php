@@ -163,7 +163,22 @@ class VendaModulo
     public function pagamentos(int $vendaId): array
     {
         return $this->db->fetchAll(
-            "SELECT * FROM venda_pagamentos WHERE venda_id = :id ORDER BY id",
+            "SELECT
+            id,
+            venda_id,
+            CASE
+                WHEN forma = 'fiado' THEN 'A Prazo'
+                ELSE forma
+            END AS forma,
+            valor,
+            troco,
+            parcelas,
+            referencia,
+            criado_em,
+            valor_parcela
+        FROM venda_pagamentos
+        WHERE venda_id = :id
+        ORDER BY id",
             ['id' => $vendaId]
         );
     }
@@ -342,5 +357,16 @@ class VendaModulo
         return $this->db->fetchAll(
             "SELECT id, nome FROM clientes WHERE ativo = 1 ORDER BY nome LIMIT 200"
         );
+    }
+
+    private function normalizarFormaPagamento(string $forma): string
+    {
+        return match ($forma) {
+            'fiado'           => 'A Prazo',
+            'pix'             => 'PIX',
+            'cartao_debito'   => 'Cartão Débito',
+            'cartao_credito'  => 'Cartão Crédito',
+            default           => ucfirst($forma),
+        };
     }
 }
