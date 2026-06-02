@@ -23,15 +23,20 @@ class Financeiro
         $params = [];
 
         if (!empty($filtros['status'])) {
-            // FIX 1: filtro de status precisava lidar com 'vencida' (virtual)
-            // 'vencida' não existe no banco — traduz para condição real
-            if ($filtros['status'] === 'vencida') {
+            // Normaliza valores femininos/alternativos para o que está no banco
+            $statusMap = [
+                'paga'      => 'pago',
+                'cancelada' => 'cancelado',
+            ];
+            $statusFiltro = $statusMap[$filtros['status']] ?? $filtros['status'];
+
+            if ($statusFiltro === 'vencida') {
                 $where[] = "cp.status NOT IN ('pago','cancelado') AND cp.vencimento < CURDATE()";
-            } elseif ($filtros['status'] === 'pendente') {
+            } elseif ($statusFiltro === 'pendente') {
                 $where[] = "cp.status NOT IN ('pago','cancelado') AND cp.vencimento >= CURDATE()";
             } else {
                 $where[]          = 'cp.status = :status';
-                $params['status'] = $filtros['status'];
+                $params['status'] = $statusFiltro;
             }
         }
 
@@ -55,23 +60,28 @@ class Financeiro
             $params['categoria_id'] = (int)$filtros['categoria_id'];
         }
 
+        if (!empty($filtros['fornecedor_id'])) {
+            $where[]                 = 'cp.fornecedor_id = :fornecedor_id';
+            $params['fornecedor_id'] = (int)$filtros['fornecedor_id'];
+        }
+
         $sql = "
-            SELECT
-                cp.*,
-                CASE
-                    WHEN cp.status IN ('pago','cancelado') THEN cp.status
-                    WHEN cp.vencimento < CURDATE()         THEN 'vencida'
-                    ELSE 'pendente'
-                END AS status_real,
-                f.razao_social   AS fornecedor_nome,
-                cf.nome          AS categoria_nome,
-                cf.cor           AS categoria_cor
-            FROM contas_pagar cp
-            LEFT JOIN fornecedores f            ON f.id  = cp.fornecedor_id
-            LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
-            WHERE " . implode(' AND ', $where) . "
-            ORDER BY cp.vencimento ASC
-        ";
+        SELECT
+            cp.*,
+            CASE
+                WHEN cp.status IN ('pago','cancelado') THEN cp.status
+                WHEN cp.vencimento < CURDATE()         THEN 'vencida'
+                ELSE 'pendente'
+            END AS status_real,
+            f.razao_social   AS fornecedor_nome,
+            cf.nome          AS categoria_nome,
+            cf.cor           AS categoria_cor
+        FROM contas_pagar cp
+        LEFT JOIN fornecedores f            ON f.id  = cp.fornecedor_id
+        LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_id
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY cp.vencimento ASC
+    ";
 
         return $this->db->fetchAll($sql, $params);
     }
@@ -238,14 +248,21 @@ class Financeiro
         $params = [];
 
         if (!empty($filtros['status'])) {
-            // FIX 1 (espelho): mesmo tratamento de 'vencida' / 'pendente'
-            if ($filtros['status'] === 'vencida') {
+            // CORRIGIDO: normaliza aliases e trata 'vencida' como condição virtual
+            $statusMap = [
+                'recebida'  => 'recebido',
+                'cancelada' => 'cancelado',
+                'pendente'  => 'aberto',   // 'pendente' → 'aberto' no banco
+            ];
+            $statusFiltro = $statusMap[$filtros['status']] ?? $filtros['status'];
+
+            if ($statusFiltro === 'vencida') {
                 $where[] = "cr.status NOT IN ('recebido','cancelado') AND cr.vencimento < CURDATE()";
-            } elseif ($filtros['status'] === 'pendente') {
+            } elseif ($statusFiltro === 'aberto') {
                 $where[] = "cr.status NOT IN ('recebido','cancelado') AND cr.vencimento >= CURDATE()";
             } else {
                 $where[]          = 'cr.status = :status';
-                $params['status'] = $filtros['status'];
+                $params['status'] = $statusFiltro;
             }
         }
 

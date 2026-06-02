@@ -43,11 +43,12 @@ class FinanceiroController extends Controller
     public function pagar(): void
     {
         $filtros = [
-            'busca'        => $_GET['busca']        ?? '',
-            'status'       => $_GET['status']       ?? '',
-            'categoria_id' => $_GET['categoria_id'] ?? '',
-            'de'           => $_GET['de']           ?? '',
-            'ate'          => $_GET['ate']          ?? '',
+            'busca'         => $_GET['busca']         ?? '',
+            'status'        => $_GET['status']        ?? '',
+            'categoria_id'  => $_GET['categoria_id']  ?? '',
+            'fornecedor_id' => $_GET['fornecedor_id'] ?? '', // CORRIGIDO: estava ausente
+            'de'            => $_GET['de']            ?? '',
+            'ate'           => $_GET['ate']           ?? '',
         ];
 
         $contas     = $this->model->listarPagar($filtros);
@@ -229,7 +230,7 @@ class FinanceiroController extends Controller
             $this->model->cancelarReceber(
                 $id,
                 $request->input('motivo', 'Cancelado pelo usuário.'),
-                $usuarioId  // ← estava faltando isso
+                $usuarioId
             );
             Session::flash('success', 'Conta cancelada. Venda e estoque estornados se aplicável.');
         } catch (\Exception $e) {
