@@ -140,10 +140,7 @@ class ProdutoController extends Controller
 
         $this->view('produtos/create', $dados);
     }
-    /**
-     * POST /produtos/{id}/editar
-     * Processa a atualização dos dados do produto
-     */
+
     /**
      * POST /produtos/{id}/editar
      * Processa a atualização dos dados do produto

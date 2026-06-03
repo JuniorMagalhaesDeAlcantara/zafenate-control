@@ -119,6 +119,12 @@ if (!function_exists('activeRoute')) {
             <span class="zf-nav-dot"></span>
         </a>
 
+         <a href="/categorias" class="zf-nav-item <?= activeRoute('categorias') ?>">
+            <i class="ti ti-folder"></i>
+            Categorias de Produtos
+            <span class="zf-nav-dot"></span>
+        </a>
+
         <!-- ── Cadastros ──────────────────────────────────────── -->
         <div class="zf-nav-section">Cadastros</div>
 
@@ -134,7 +140,7 @@ if (!function_exists('activeRoute')) {
             <span class="zf-nav-dot"></span>
         </a>
 
-        <!-- ── Sistema ────────────────────────────────────────── -->
+               <!-- ── Sistema ────────────────────────────────────────── -->
         <div class="zf-nav-section">Sistema</div>
 
         <a href="/relatorios/estoque" class="zf-nav-item <?= activeRoute('relatorios') ?>">

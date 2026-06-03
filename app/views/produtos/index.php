@@ -17,6 +17,7 @@
 
         <div class="zf-content">
 
+            <!-- Alertas flash -->
             <?php if ($success = \App\Core\Session::getFlash('success')): ?>
                 <div class="zf-alert zf-alert-success" data-auto-close>
                     <i class="ti ti-circle-check"></i>
@@ -30,6 +31,7 @@
                 </div>
             <?php endif; ?>
 
+            <!-- Cards de totais -->
             <div class="zf-stats">
                 <div class="zf-stat-card">
                     <div class="zf-stat-label">Total de produtos</div>
@@ -47,6 +49,7 @@
                 </div>
             </div>
 
+            <!-- Toolbar: busca + ação -->
             <div class="zf-toolbar">
                 <form action="/produtos" method="GET" class="d-flex align-center gap-8" style="flex:1; flex-wrap:wrap;">
                     <div class="zf-search-wrap">
@@ -72,6 +75,7 @@
                 </a>
             </div>
 
+            <!-- Tabela -->
             <div class="zf-table-card">
                 <table class="zf-table">
                     <thead>
@@ -104,26 +108,26 @@
                                         <div class="td-sub"><?= e($p['categoria_nome'] ?? 'Sem categoria') ?></div>
                                     </td>
                                     <td>
-                                        <span class="fw-500">R$ <?= number_format($p['preco_venda'] ?? 0, 2, ',', '.') ?></span>
+                                        <span class="fw-500">R$ <?= number_format($p['preco_venda'], 2, ',', '.') ?></span>
                                     </td>
                                     <td>
-                                        <?php if (isset($p['alerta_estoque']) && $p['alerta_estoque']): ?>
+                                        <?php if ($p['alerta_estoque']): ?>
                                             <span class="badge badge-warning">
                                                 <i class="ti ti-alert-triangle" style="font-size:10px"></i>
-                                                <?= number_format($p['estoque_atual'] ?? 0, 3, ',', '.') ?> <?= e($p['unidade_sigla'] ?? 'UN') ?>
+                                                <?= number_format($p['estoque_atual'], 3, ',', '.') ?> <?= e($p['unidade_sigla']) ?>
                                             </span>
                                         <?php else: ?>
                                             <span class="fw-500">
-                                                <?= number_format($p['estoque_atual'] ?? 0, 3, ',', '.') ?>
+                                                <?= number_format($p['estoque_atual'], 3, ',', '.') ?>
                                             </span>
-                                            <span class="text-muted text-sm"><?= e($p['unidade_sigla'] ?? 'UN') ?></span>
+                                            <span class="text-muted text-sm"><?= e($p['unidade_sigla']) ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-muted text-sm">
-                                        <?= number_format($p['estoque_minimo'] ?? 0, 3, ',', '.') ?>
+                                        <?= number_format($p['estoque_minimo'], 3, ',', '.') ?>
                                     </td>
                                     <td>
-                                        <?php if (isset($p['ativo']) && $p['ativo']): ?>
+                                        <?php if ($p['ativo']): ?>
                                             <span class="badge badge-success">Ativo</span>
                                         <?php else: ?>
                                             <span class="badge badge-neutral">Inativo</span>
@@ -135,13 +139,12 @@
                                         </a>
 
                                         <form action="/produtos/<?= $p['id'] ?>/status" method="POST" style="display:inline">
-                                            <?= $csrf ?? '' ?>
-
+                                            <?= csrf_field() ?>
                                             <button
                                                 type="submit"
-                                                class="act-btn <?= (isset($p['ativo']) && $p['ativo']) ? '' : 'activate' ?>"
-                                                data-confirm="<?= (isset($p['ativo']) && $p['ativo']) ? 'Desativar este produto?' : 'Ativar este produto?' ?>">
-                                                <?= (isset($p['ativo']) && $p['ativo']) ? 'Desativar' : 'Ativar' ?>
+                                                class="act-btn <?= $p['ativo'] ? '' : 'activate' ?>"
+                                                data-confirm="<?= $p['ativo'] ? 'Desativar este produto?' : 'Ativar este produto?' ?>">
+                                                <?= $p['ativo'] ? 'Desativar' : 'Ativar' ?>
                                             </button>
                                         </form>
                                     </td>
@@ -151,6 +154,7 @@
                     </tbody>
                 </table>
 
+                <!-- Paginação -->
                 <?php if (!empty($paginacao) && $paginacao['total_paginas'] > 1): ?>
                     <div class="zf-pagination">
                         <span>
@@ -167,7 +171,11 @@
                     </div>
                 <?php endif; ?>
 
-            </div>
-        </div>
-    </div>
-</div><?php require VIEW_PATH . '/layouts/footer.php'; ?>
+            </div><!-- /.zf-table-card -->
+
+        </div><!-- /.zf-content -->
+
+    </div><!-- /.zf-main -->
+</div><!-- /.zf-layout -->
+
+<?php require VIEW_PATH . '/layouts/footer.php'; ?>

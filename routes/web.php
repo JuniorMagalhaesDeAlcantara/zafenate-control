@@ -129,4 +129,13 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->post('/financeiro/receber/{id}/cancelar', 'FinanceiroController@receberCancelar');
 
     $r->get('/financeiro/fluxo',                  'FinanceiroController@fluxo');
+
+    // ---- Categorias ----
+    $r->get('/categorias',               'CategoriaController@index');
+    $r->get('/categorias/criar',         'CategoriaController@create');
+    $r->post('/categorias/criar',        'CategoriaController@store');
+    $r->get('/categorias/{id}/editar',   'CategoriaController@edit');
+    $r->post('/categorias/{id}/editar',  'CategoriaController@update');
+    $r->post('/categorias/{id}/status',  'CategoriaController@toggleStatus');
+    $r->post('/categorias/ajax',         'CategoriaController@storeAjax');   // criação rápida (modal)
 });
