@@ -1,5 +1,160 @@
 <?php require VIEW_PATH . '/layouts/header.php'; ?>
 
+<style>
+    /* ── Visão Geral Financeira: estilos ── */
+    .fin-page-hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-bottom: 28px;
+    }
+
+    .fin-page-hdr-left h1 {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0 0 6px;
+        letter-spacing: -.4px;
+    }
+
+    .fin-page-hdr-left p {
+        font-size: 13px;
+        color: var(--text-tertiary);
+        margin: 0;
+    }
+
+    .fin-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    /* KPI Cards */
+    .fin-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .fin-kpi {
+        background: var(--bg-primary, #fff);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        transition: box-shadow .15s ease, border-color .15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .fin-kpi:hover {
+        border-color: var(--color-border, #d1d5db);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+    }
+
+    .fin-kpi-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: var(--text-tertiary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .fin-kpi-value {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .fin-kpi-sub {
+        font-size: 12px;
+        color: var(--text-tertiary);
+    }
+
+    .fin-kpi-icon {
+        position: absolute;
+        right: 16px;
+        top: 16px;
+        font-size: 32px;
+        opacity: .06;
+    }
+
+    /* Tabelas de dados */
+    .fin-data-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    @media (max-width: 1200px) {
+        .fin-data-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .fin-card {
+        background: var(--bg-primary, #fff);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 24px;
+        transition: box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .fin-card:hover {
+        border-color: var(--color-border, #d1d5db);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .04);
+    }
+
+    .fin-card-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        color: var(--text-tertiary);
+        margin: 0 0 18px;
+        opacity: .85;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .fin-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 13px;
+    }
+
+    .fin-row:last-child {
+        border-bottom: none;
+    }
+
+    .fin-row-label {
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .fin-row-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .fin-row-positive {
+        color: #16a34a;
+    }
+
+    .fin-row-negative {
+        color: #dc2626;
+    }
+</style>
+
 <div class="zf-layout">
     <?php require VIEW_PATH . '/layouts/sidebar.php'; ?>
     <div class="zf-main">
@@ -11,7 +166,7 @@
         require VIEW_PATH . '/layouts/navbar.php';
         ?>
 
-        <div class="zf-content">
+        <div class="zf-content" style="display:flex;flex-direction:column;gap:20px;">
 
             <?php if ($msg = \App\Core\Session::getFlash('success')): ?>
                 <div class="zf-alert zf-alert-success" data-auto-close><i class="ti ti-circle-check"></i> <?= e($msg) ?></div>
@@ -19,65 +174,99 @@
             <?php if ($msg = \App\Core\Session::getFlash('error')): ?>
                 <div class="zf-alert zf-alert-danger" data-auto-close><i class="ti ti-alert-circle"></i> <?= e($msg) ?></div>
             <?php endif; ?>
-            <?php
 
-                $meses = [
-                    1  => 'Janeiro',
-                    2  => 'Fevereiro',
-                    3  => 'Março',
-                    4  => 'Abril',
-                    5  => 'Maio',
-                    6  => 'Junho',
-                    7  => 'Julho',
-                    8  => 'Agosto',
-                    9  => 'Setembro',
-                    10 => 'Outubro',
-                    11 => 'Novembro',
-                    12 => 'Dezembro',
-                ];
+            <?php
+            $meses = [
+                1  => 'Janeiro',
+                2  => 'Fevereiro',
+                3  => 'Março',
+                4  => 'Abril',
+                5  => 'Maio',
+                6  => 'Junho',
+                7  => 'Julho',
+                8  => 'Agosto',
+                9  => 'Setembro',
+                10 => 'Outubro',
+                11 => 'Novembro',
+                12 => 'Dezembro',
+            ];
             ?>
-            
 
             <!-- Cabeçalho -->
-            <div style="margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end;">
-                <div>
-                    <h1 style="font-size:22px;font-weight:500;margin:0 0 4px;">Visão Geral Financeira</h1>
-                    <p style="color:var(--text-tertiary);font-size:14px;margin:0;">
-                        Resumo do mês de <?= $meses[(int)date('n')] ?> de <?= date('Y') ?>
-                    </p>
+            <div class="fin-page-hdr">
+                <div class="fin-page-hdr-left">
+                    <h1>Visão Geral Financeira</h1>
+                    <p>Resumo do mês de <?= $meses[(int)date('n')] ?> de <?= date('Y') ?></p>
                 </div>
-                <div style="display:flex;gap:10px;">
-                    <a href="/financeiro/pagar/criar" class="btn btn-sm btn-outline">
+                <div class="fin-actions">
+                    <a href="/financeiro/pagar/criar" class="btn btn-outline btn-sm">
                         <i class="ti ti-plus"></i> Conta a pagar
                     </a>
-                    <a href="/financeiro/receber/criar" class="btn btn-sm btn-outline">
+                    <a href="/financeiro/receber/criar" class="btn btn-outline btn-sm">
                         <i class="ti ti-plus"></i> Conta a receber
                     </a>
-                    <a href="/financeiro/fluxo" class="btn btn-sm btn-primary">
+                    <a href="/financeiro/fluxo" class="btn btn-primary btn-sm">
                         <i class="ti ti-arrows-exchange"></i> Fluxo de caixa
                     </a>
                 </div>
             </div>
 
-            <!-- ─── CARDS PRINCIPAIS ─── -->
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+            <!-- KPI CARDS -->
+            <div class="fin-kpi-grid">
 
                 <!-- Saldo do período -->
-                <div class="zf-table-card" style="padding:20px;position:relative;overflow:hidden;">
-                    <div style="font-size:12px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+                <?php $saldo = ($totais_receber['recebidas_mes'] ?? 0) - ($totais_pagar['pagas_mes'] ?? 0); ?>
+                <div class="fin-kpi">
+                    <div class="fin-kpi-label">
                         <i class="ti ti-scale"></i> Saldo do mês
                     </div>
-                    <?php $saldo = ($totais_receber['recebidas_mes'] ?? 0) - ($totais_pagar['pagas_mes'] ?? 0); ?>
-                    <div style="font-size:26px;font-weight:500;margin-bottom:4px;color:<?= $saldo >= 0 ? 'var(--color-success,#22c55e)' : 'var(--color-danger,#ef4444)' ?>;">
+                    <div class="fin-kpi-value" style="color:<?= $saldo >= 0 ? '#16a34a' : '#dc2626' ?>;">
                         R$ <?= number_format($saldo, 2, ',', '.') ?>
                     </div>
-                    <div style="font-size:12px;color:var(--text-tertiary);">
-                        Entradas − saídas pagas
-                    </div>
-                    <i class="ti ti-scale" style="position:absolute;right:16px;top:16px;font-size:28px;opacity:.06;"></i>
+                    <div class="fin-kpi-sub">Entradas − saídas pagas</div>
+                    <i class="ti ti-scale fin-kpi-icon"></i>
                 </div>
 
                 <!-- A receber -->
+                <div class="fin-kpi">
+                    <div class="fin-kpi-label">
+                        <i class="ti ti-clock"></i> A receber
+                    </div>
+                    <div class="fin-kpi-value">
+                        R$ <?= number_format($totais_receber['a_receber'] ?? 0, 2, ',', '.') ?>
+                    </div>
+                    <div class="fin-kpi-sub"><?= $totais_receber['qtd_aberto'] ?? 0 ?> conta(s) pendente(s)</div>
+                    <i class="ti ti-clock fin-kpi-icon"></i>
+                </div>
+
+                <!-- A pagar -->
+                <div class="fin-kpi">
+                    <div class="fin-kpi-label">
+                        <i class="ti ti-alert-circle"></i> A pagar
+                    </div>
+                    <div class="fin-kpi-value">
+                        R$ <?= number_format($totais_pagar['a_pagar'] ?? 0, 2, ',', '.') ?>
+                    </div>
+                    <div class="fin-kpi-sub"><?= $totais_pagar['qtd_aberto'] ?? 0 ?> conta(s) em aberto</div>
+                    <i class="ti ti-alert-circle fin-kpi-icon"></i>
+                </div>
+
+                <!-- Fluxo do mês -->
+                <div class="fin-kpi">
+                    <div class="fin-kpi-label">
+                        <i class="ti ti-arrows-exchange"></i> Fluxo mês
+                    </div>
+                    <div class="fin-kpi-value">
+                        R$ <?= number_format($totais_receber['recebidas_mes'] ?? 0, 2, ',', '.') ?>
+                    </div>
+                    <div class="fin-kpi-sub">Entradas confirmadas</div>
+                    <i class="ti ti-arrows-exchange fin-kpi-icon"></i>
+                </div>
+
+            </div>
+
+            <!-- DADOS DETALHADOS -->
+            <div class="fin-data-grid">
                 <div class="zf-table-card" style="padding:20px;position:relative;overflow:hidden;">
                     <div style="font-size:12px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
                         <i class="ti ti-arrow-down-circle"></i> A receber
