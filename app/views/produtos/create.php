@@ -50,6 +50,29 @@
                             </div>
                             <div class="pf-card-body">
 
+                                <div class="pf-tipo-toggle">
+                                    <input type="hidden" name="tipo" id="input-tipo"
+                                        value="<?= e($produto['tipo'] ?? 'produto') ?>">
+
+                                    <button type="button"
+                                        class="pf-tipo-btn <?= ($produto['tipo'] ?? 'produto') === 'produto' ? 'active' : '' ?>"
+                                        data-tipo="produto"
+                                        onclick="setTipo('produto')">
+                                        <i class="ti ti-package"></i>
+                                        <span>Produto</span>
+                                        <small>Controla estoque</small>
+                                    </button>
+
+                                    <button type="button"
+                                        class="pf-tipo-btn <?= ($produto['tipo'] ?? 'produto') === 'servico' ? 'active' : '' ?>"
+                                        data-tipo="servico"
+                                        onclick="setTipo('servico')">
+                                        <i class="ti ti-settings-cog"></i>
+                                        <span>Serviço</span>
+                                        <small>Sem estoque</small>
+                                    </button>
+                                </div>
+
                                 <div class="pf-field pf-field-full">
                                     <label class="pf-label">Nome do Produto <span class="pf-req">*</span></label>
                                     <input type="text" name="nome" class="pf-input"
@@ -95,6 +118,7 @@
                             </div>
                             <div class="pf-card-body">
 
+                                <!-- Inputs de custo e venda -->
                                 <div class="pf-row">
                                     <div class="pf-field">
                                         <label class="pf-label">Preço de Custo (R$) <span class="pf-req">*</span></label>
@@ -103,7 +127,8 @@
                                             <input type="number" step="0.01" min="0" name="preco_custo"
                                                 class="pf-input pf-input-prefix-pad pf-money"
                                                 placeholder="0,00"
-                                                value="<?= e($produto['preco_custo'] ?? '0.00') ?>"
+                                                value="<?= e($produto['preco_custo'] ?? '') ?>"
+                                                id="preco-custo"
                                                 required>
                                         </div>
                                     </div>
@@ -114,24 +139,43 @@
                                             <input type="number" step="0.01" min="0" name="preco_venda"
                                                 class="pf-input pf-input-prefix-pad pf-money"
                                                 placeholder="0,00"
-                                                value="<?= e($produto['preco_venda'] ?? '0.00') ?>"
+                                                value="<?= e($produto['preco_venda'] ?? '') ?>"
                                                 id="preco-venda"
                                                 required>
                                         </div>
                                     </div>
-                                    <div class="pf-field pf-field-margem">
-                                        <label class="pf-label">Margem</label>
-                                        <div class="pf-margem-display" id="margem-display">
-                                            <span id="margem-valor">—</span>
-                                        </div>
+                                </div>
+
+                                <!-- Painel de métricas calculadas -->
+                                <div class="price-metrics" id="price-metrics">
+                                    <div class="price-metric metric-empty" id="metric-lucro">
+                                        <div class="price-metric-label"><i class="ti ti-coin"></i> Lucro bruto</div>
+                                        <div class="price-metric-value" id="val-lucro">—</div>
+                                        <div class="price-metric-sub">venda − custo</div>
                                     </div>
+                                    <div class="price-metric metric-empty" id="metric-margem">
+                                        <div class="price-metric-label"><i class="ti ti-trending-up"></i> Margem</div>
+                                        <div class="price-metric-value" id="val-margem">—</div>
+                                        <div class="price-metric-sub">sobre o preço de venda</div>
+                                    </div>
+                                    <div class="price-metric metric-empty" id="metric-markup">
+                                        <div class="price-metric-label"><i class="ti ti-percentage"></i> Markup</div>
+                                        <div class="price-metric-value" id="val-markup">—</div>
+                                        <div class="price-metric-sub">sobre o custo</div>
+                                    </div>
+                                </div>
+
+                                <!-- Dica contextual dinâmica -->
+                                <div class="price-context hidden" id="price-context">
+                                    <i class="ti ti-info-circle"></i>
+                                    <span id="price-context-text"></span>
                                 </div>
 
                             </div>
                         </div>
 
                         <!-- Estoque -->
-                        <div class="pf-card">
+                        <div class="pf-card" id="card-estoque">
                             <div class="pf-card-header">
                                 <span class="pf-card-icon"><i class="ti ti-stack-2"></i></span>
                                 <span class="pf-card-title">Estoque</span>
@@ -360,6 +404,7 @@
         border: 1px solid rgba(0, 0, 0, .08);
         border-radius: 12px;
         overflow: hidden;
+        max-width: 700px;
     }
 
     .pf-card-header {
@@ -397,16 +442,303 @@
         gap: 14px;
     }
 
-    .pf-card-body-gap {
-        gap: 16px;
+    .pf-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
     }
 
-    .pf-card-meta {
-        padding: 16px 18px;
+    .pf-field {
         display: flex;
         flex-direction: column;
+        gap: 5px;
+    }
+
+    .pf-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6B7280;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+
+    .pf-req {
+        color: #DC2626;
+    }
+
+    .pf-input {
+        font-family: inherit;
+        font-size: 13px;
+        color: #1A1A1A;
+        background: #F9FAFB;
+        border: 1px solid rgba(0, 0, 0, .12);
+        border-radius: 8px;
+        padding: 9px 12px;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s, background .15s;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .pf-input:focus {
+        border-color: #1A1A1A;
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, .06);
+    }
+
+    .pf-input-wrap {
+        position: relative;
+    }
+
+    .pf-input-prefix {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        font-weight: 600;
+        color: #9CA3AF;
+        pointer-events: none;
+    }
+
+    .pf-input-prefix-pad {
+        padding-left: 30px;
+    }
+
+    /* Toggle Produto / Serviço */
+    .pf-tipo-toggle {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 10px;
-        background: #FAFAFA;
+        margin-bottom: 4px;
+    }
+
+    .pf-tipo-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 14px 12px;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 0, 0, .10);
+        background: #F9FAFB;
+        cursor: pointer;
+        transition: all .18s;
+        font-family: inherit;
+        color: #6B7280;
+    }
+
+    .pf-tipo-btn i {
+        font-size: 20px;
+        margin-bottom: 2px;
+    }
+
+    .pf-tipo-btn span {
+        font-size: 13px;
+        font-weight: 600;
+        color: inherit;
+    }
+
+    .pf-tipo-btn small {
+        font-size: 10px;
+        color: #9CA3AF;
+    }
+
+    .pf-tipo-btn:hover {
+        border-color: rgba(0, 0, 0, .20);
+        background: #F3F4F6;
+    }
+
+    /* Produto ativo */
+    .pf-tipo-btn[data-tipo="produto"].active {
+        background: #EFF6FF;
+        border-color: #3B82F6;
+        color: #1D4ED8;
+    }
+
+    .pf-tipo-btn[data-tipo="produto"].active small {
+        color: #93C5FD;
+    }
+
+    /* Serviço ativo */
+    .pf-tipo-btn[data-tipo="servico"].active {
+        background: #F0FDF4;
+        border-color: #22C55E;
+        color: #15803D;
+    }
+
+    .pf-tipo-btn[data-tipo="servico"].active small {
+        color: #86EFAC;
+    }
+
+    /* Aviso exibido quando tipo = serviço */
+    .pf-servico-aviso {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 14px;
+        background: #F0FDF4;
+        border: 1px solid #BBF7D0;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #15803D;
+        line-height: 1.5;
+        margin-bottom: 4px;
+        animation: fadeIn .2s ease;
+    }
+
+    .pf-servico-aviso i {
+        font-size: 15px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Card de estoque oculto */
+    #card-estoque.hidden {
+        display: none;
+    }
+
+    /* ── Painel de métricas ── */
+    .price-metrics {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-top: 2px;
+    }
+
+    .price-metric {
+        background: #F9FAFB;
+        border: 1px solid rgba(0, 0, 0, .08);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transition: background .2s, border-color .2s;
+    }
+
+    .price-metric-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #9CA3AF;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+
+    .price-metric-label i {
+        font-size: 12px;
+    }
+
+    .price-metric-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #6B7280;
+        line-height: 1;
+        transition: color .2s;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .price-metric-sub {
+        font-size: 10px;
+        color: #D1D5DB;
+        margin-top: 1px;
+    }
+
+    /* estados coloridos */
+    .metric-good {
+        background: #F0FDF4;
+        border-color: #BBF7D0;
+    }
+
+    .metric-good .price-metric-value {
+        color: #16A34A;
+    }
+
+    .metric-good .price-metric-label {
+        color: #86EFAC;
+    }
+
+    .metric-warn {
+        background: #FFFBEB;
+        border-color: #FDE68A;
+    }
+
+    .metric-warn .price-metric-value {
+        color: #D97706;
+    }
+
+    .metric-warn .price-metric-label {
+        color: #FCD34D;
+    }
+
+    .metric-bad {
+        background: #FFF1F2;
+        border-color: #FECDD3;
+    }
+
+    .metric-bad .price-metric-value {
+        color: #E11D48;
+    }
+
+    .metric-bad .price-metric-label {
+        color: #FDA4AF;
+    }
+
+    /* ── Tooltip de contexto ── */
+    .price-context {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+        background: #EFF6FF;
+        border: 1px solid #BFDBFE;
+        border-radius: 8px;
+        font-size: 11px;
+        color: #1D4ED8;
+        line-height: 1.5;
+        transition: all .3s;
+    }
+
+    .price-context i {
+        font-size: 14px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .price-context.hidden {
+        display: none;
+    }
+
+    .price-context.warn-ctx {
+        background: #FFFBEB;
+        border-color: #FDE68A;
+        color: #92400E;
+    }
+
+    .price-context.bad-ctx {
+        background: #FFF1F2;
+        border-color: #FECDD3;
+        color: #9F1239;
+    }
+
+    /* placeholder state */
+    .metric-empty .price-metric-value {
+        color: #D1D5DB;
     }
 
     /* ── Grid rows ── */
@@ -870,32 +1202,105 @@
     }
 </style>
 
+
 <script>
+    // ── Toggle Produto / Serviço ────────────────────────────────
+    function setTipo(tipo) {
+        document.getElementById('input-tipo').value = tipo;
+
+        document.querySelectorAll('.pf-tipo-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tipo === tipo);
+        });
+
+        const cardEstoque = document.getElementById('card-estoque');
+        const aviso = document.getElementById('servico-aviso');
+        const precoCusto = document.getElementById('preco-custo'); // <-- adiciona
+
+        if (tipo === 'servico') {
+            cardEstoque?.classList.add('hidden');
+            // Remove required do custo — serviço não precisa
+            if (precoCusto) {
+                precoCusto.removeAttribute('required');
+                precoCusto.value = precoCusto.value || '0'; // garante 0,00 se vazio
+            }
+            if (!aviso) {
+                const el = document.createElement('div');
+                el.id = 'servico-aviso';
+                el.className = 'pf-servico-aviso';
+                el.innerHTML = '<i class="ti ti-info-circle"></i> Serviços não controlam estoque. Os campos de quantidade serão ignorados automaticamente.';
+                cardEstoque?.insertAdjacentElement('beforebegin', el);
+            }
+        } else {
+            cardEstoque?.classList.remove('hidden');
+            document.getElementById('servico-aviso')?.remove();
+            // Restaura required ao voltar para produto
+            precoCusto?.setAttribute('required', '');
+        }
+    }
+
+    // Garante estado correto ao carregar (modo edição)
+    setTipo(document.getElementById('input-tipo')?.value || 'produto');
+
+
     // ── Cálculo de margem em tempo real ─────────────────────────
-    function calcularMargem() {
+    const brl = v => v.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+    const pct = v => v.toFixed(1) + '%';
+
+    function calcularPrecos() {
         const custo = parseFloat(document.querySelector('[name="preco_custo"]')?.value) || 0;
         const venda = parseFloat(document.querySelector('[name="preco_venda"]')?.value) || 0;
-        const el = document.getElementById('margem-display');
-        const txt = document.getElementById('margem-valor');
 
-        if (!el || !txt) return;
+        const mLucro = document.getElementById('metric-lucro');
+        const mMargem = document.getElementById('metric-margem');
+        const mMarkup = document.getElementById('metric-markup');
+        const ctx = document.getElementById('price-context');
+        const ctxText = document.getElementById('price-context-text');
+
+        if (!mLucro) return; // card de preços não carregado
 
         if (custo <= 0 || venda <= 0) {
-            txt.textContent = '—';
-            el.className = 'pf-margem-display';
+            [mLucro, mMargem, mMarkup].forEach(el => el.className = 'price-metric metric-empty');
+            document.getElementById('val-lucro').textContent = '—';
+            document.getElementById('val-margem').textContent = '—';
+            document.getElementById('val-markup').textContent = '—';
+            if (ctx) ctx.className = 'price-context hidden';
             return;
         }
 
-        const margem = ((venda - custo) / venda * 100).toFixed(1);
-        txt.textContent = margem + '%';
+        const lucro = venda - custo;
+        const margem = (lucro / venda) * 100;
+        const markup = (lucro / custo) * 100;
 
-        el.className = 'pf-margem-display ' +
-            (margem >= 30 ? 'good' : margem >= 10 ? 'warn' : 'bad');
+        document.getElementById('val-lucro').textContent = brl(lucro);
+        document.getElementById('val-margem').textContent = pct(margem);
+        document.getElementById('val-markup').textContent = pct(markup);
+
+        const estado = margem >= 30 ? 'good' : margem >= 10 ? 'warn' : 'bad';
+        [mLucro, mMargem, mMarkup].forEach(el => el.className = `price-metric metric-${estado}`);
+
+        if (ctx) {
+            ctx.className = `price-context ${estado === 'good' ? '' : estado === 'warn' ? 'warn-ctx' : 'bad-ctx'}`.trim();
+
+            if (lucro < 0) {
+                ctxText.innerHTML = `<strong>Prejuízo por unidade.</strong> O preço de venda está abaixo do custo — cada venda gera perda de ${brl(Math.abs(lucro))}. <em>Margem: % do lucro no preço de venda. Markup: % adicionado sobre o custo para formar o preço.</em>`;
+                ctx.className = 'price-context bad-ctx';
+            } else if (margem < 10) {
+                ctxText.innerHTML = `<strong>Margem apertada.</strong> Apenas ${pct(margem)} do preço de venda é lucro bruto. Verifique se cobre despesas operacionais. <em>Markup indica quanto foi acrescentado ao custo para chegar ao preço final.</em>`;
+            } else if (margem < 30) {
+                ctxText.innerHTML = `<strong>Margem moderada.</strong> ${pct(margem)} do preço de venda é lucro bruto. O markup de ${pct(markup)} é o percentual acrescentado ao custo para formar o preço.`;
+            } else {
+                ctxText.innerHTML = `<strong>Boa margem.</strong> ${pct(margem)} do preço de venda retorna como lucro bruto — ${brl(lucro)} por unidade disponíveis para custos fixos e resultado líquido.`;
+            }
+        }
     }
 
-    document.querySelector('[name="preco_custo"]')?.addEventListener('input', calcularMargem);
-    document.querySelector('[name="preco_venda"]')?.addEventListener('input', calcularMargem);
-    calcularMargem(); // ao carregar
+    document.querySelector('[name="preco_custo"]')?.addEventListener('input', calcularPrecos);
+    document.querySelector('[name="preco_venda"]')?.addEventListener('input', calcularPrecos);
+    calcularPrecos();
+
 
     // ── Modal de categoria ───────────────────────────────────────
     function abrirModalCategoria() {
@@ -940,19 +1345,16 @@
                     nome,
                     descricao,
                     parent_id: parentId
-                })
+                }),
             });
 
             const data = await resp.json();
-
             if (!data.success) throw new Error(data.message || 'Erro ao criar categoria.');
 
-            // Adiciona ao select e seleciona
             const select = document.getElementById('select-categoria');
-            const option = new Option(data.categoria.nome, data.categoria.id, true, true);
-            select.appendChild(option);
-
+            select.appendChild(new Option(data.categoria.nome, data.categoria.id, true, true));
             fecharModalCategoria();
+
         } catch (err) {
             errEl.textContent = err.message;
             errEl.style.display = 'block';
@@ -962,15 +1364,12 @@
         }
     }
 
-    // Enter no campo nome salva
     document.getElementById('cat-nome')?.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
             e.preventDefault();
             salvarCategoria();
         }
     });
-
-    // ESC fecha modal
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') fecharModalCategoria();
     });

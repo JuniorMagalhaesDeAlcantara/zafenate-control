@@ -8,21 +8,21 @@ class Produto
 {
     private Database $db;
 
-    // Campos permitidos para insert/update (whitelist)
     private array $fillable = [
         'categoria_id',
         'unidade_id',
         'codigo',
         'codigo_barras',
+        'tipo',            // 'produto' | 'servico'
         'nome',
         'descricao',
         'imagem',
         'preco_custo',
         'preco_venda',
-        'estoque_atual',   // permitido apenas no CREATE — update vai por MovimentacaoEstoque
+        'estoque_atual',   // ignorado no update; para serviços sempre NULL
         'estoque_minimo',
         'estoque_maximo',
-        'ativo'
+        'ativo',
     ];
 
     public function __construct()
@@ -34,25 +34,21 @@ class Produto
     // LEITURA
     // ----------------------------------------------------------------
 
-    /**
-     * Lista todos os produtos com join de categoria e unidade.
-     * Suporta busca por nome, código ou código de barras.
-     */
     public function listar(array $filtros = []): array
     {
         $where  = ['1=1'];
         $params = [];
 
         if (!empty($filtros['busca'])) {
-            $where[]        = '(p.nome LIKE :busca_nome OR p.codigo LIKE :busca_codigo OR p.codigo_barras LIKE :busca_barras)';
-            $termo = '%' . $filtros['busca'] . '%';
+            $where[]              = '(p.nome LIKE :busca_nome OR p.codigo LIKE :busca_codigo OR p.codigo_barras LIKE :busca_barras)';
+            $termo                = '%' . $filtros['busca'] . '%';
             $params['busca_nome']   = $termo;
             $params['busca_codigo'] = $termo;
             $params['busca_barras'] = $termo;
         }
 
         if (isset($filtros['categoria_id']) && $filtros['categoria_id'] !== '') {
-            $where[]              = 'p.categoria_id = :categoria_id';
+            $where[]                = 'p.categoria_id = :categoria_id';
             $params['categoria_id'] = (int) $filtros['categoria_id'];
         }
 
@@ -61,8 +57,18 @@ class Produto
             $params['ativo'] = (int) $filtros['ativo'];
         }
 
+        if (!empty($filtros['tipo'])) {
+            $where[]       = 'p.tipo = :tipo';
+            $params['tipo'] = $filtros['tipo'];
+        }
+
         if (!empty($filtros['alerta_estoque'])) {
-            $where[] = 'p.estoque_atual <= p.estoque_minimo AND p.estoque_minimo > 0';
+            // Serviços nunca entram em alerta de estoque
+            $where[] = "p.tipo = 'produto' AND p.estoque_minimo > 0 AND p.estoque_atual <= p.estoque_minimo";
+        }
+
+        if (!empty($filtros['zerados'])) {
+            $where[] = "p.tipo = 'produto' AND p.estoque_atual <= 0";
         }
 
         $whereStr = implode(' AND ', $where);
@@ -71,12 +77,15 @@ class Produto
         $sql = "
             SELECT
                 p.*,
-                c.nome        AS categoria_nome,
-                cp.nome       AS subcategoria_pai,
-                u.sigla       AS unidade_sigla,
-                u.nome        AS unidade_nome,
-                CASE WHEN p.estoque_minimo > 0 AND p.estoque_atual <= p.estoque_minimo
-                     THEN 1 ELSE 0 END AS alerta_estoque
+                c.nome   AS categoria_nome,
+                cp.nome  AS subcategoria_pai,
+                u.sigla  AS unidade_sigla,
+                u.nome   AS unidade_nome,
+                CASE
+                    WHEN p.tipo = 'servico' THEN 0
+                    WHEN p.estoque_minimo > 0 AND p.estoque_atual <= p.estoque_minimo THEN 1
+                    ELSE 0
+                END AS alerta_estoque
             FROM produtos p
             LEFT JOIN categorias c  ON c.id = p.categoria_id
             LEFT JOIN categorias cp ON cp.id = c.parent_id
@@ -88,17 +97,14 @@ class Produto
         return $this->db->fetchAll($sql, $params);
     }
 
-    /**
-     * Busca um produto pelo ID com todos os dados relacionados.
-     */
     public function buscarPorId(int $id): ?array
     {
         $sql = "
             SELECT
                 p.*,
-                c.nome   AS categoria_nome,
-                u.sigla  AS unidade_sigla,
-                u.nome   AS unidade_nome
+                c.nome  AS categoria_nome,
+                u.sigla AS unidade_sigla,
+                u.nome  AS unidade_nome
             FROM produtos p
             LEFT JOIN categorias c ON c.id = p.categoria_id
             LEFT JOIN unidades u   ON u.id = p.unidade_id
@@ -109,9 +115,6 @@ class Produto
         return $this->db->fetchOne($sql, ['id' => $id]) ?: null;
     }
 
-    /**
-     * Busca por código de barras — usado pelo leitor físico ou câmera.
-     */
     public function buscarPorCodigoBarras(string $codigo): ?array
     {
         $sql = "
@@ -125,16 +128,14 @@ class Produto
         return $this->db->fetchOne($sql, ['codigo' => $codigo]) ?: null;
     }
 
-    /**
-     * Produtos com estoque abaixo do mínimo (painel de alertas).
-     */
     public function comEstoqueBaixo(): array
     {
         $sql = "
             SELECT p.*, u.sigla AS unidade_sigla
             FROM produtos p
             LEFT JOIN unidades u ON u.id = p.unidade_id
-            WHERE p.ativo = 1
+            WHERE p.tipo = 'produto'
+              AND p.ativo = 1
               AND p.estoque_minimo > 0
               AND p.estoque_atual <= p.estoque_minimo
             ORDER BY (p.estoque_atual / p.estoque_minimo) ASC
@@ -143,17 +144,17 @@ class Produto
         return $this->db->fetchAll($sql);
     }
 
-    /**
-     * Contagem total de produtos (ativo/inativo/alertas).
-     */
     public function totais(): array
     {
         $sql = "
             SELECT
-                COUNT(*)                                                                  AS total,
-                SUM(ativo = 1)                                                            AS ativos,
-                SUM(ativo = 0)                                                            AS inativos,
-                SUM(ativo = 1 AND estoque_minimo > 0 AND estoque_atual <= estoque_minimo) AS alerta_estoque
+                COUNT(*)                                                                                      AS total,
+                SUM(ativo = 1)                                                                                AS ativos,
+                SUM(ativo = 0)                                                                                AS inativos,
+                SUM(tipo = 'produto')                                                                         AS total_produtos,
+                SUM(tipo = 'servico')                                                                         AS total_servicos,
+                SUM(tipo = 'produto' AND ativo = 1 AND estoque_minimo > 0 AND estoque_atual <= estoque_minimo) AS alerta_estoque,
+                SUM(tipo = 'produto' AND ativo = 1 AND estoque_atual <= 0)                                    AS zerados
             FROM produtos
         ";
 
@@ -164,84 +165,70 @@ class Produto
     // ESCRITA
     // ----------------------------------------------------------------
 
-    /**
-     * Cria um novo produto.
-     * Retorna o ID inserido ou lança exceção em caso de erro.
-     */
     public function criar(array $dados): int
     {
         $dados = $this->filtrarCampos($dados);
+        $this->normalizarServico($dados);   // ← regra de negócio: serviço sem estoque
         $this->validar($dados);
 
         $campos    = implode(', ', array_keys($dados));
         $placehold = ':' . implode(', :', array_keys($dados));
 
-        $sql = "INSERT INTO produtos ({$campos}) VALUES ({$placehold})";
+        $this->db->execute(
+            "INSERT INTO produtos ({$campos}) VALUES ({$placehold})",
+            $dados
+        );
 
-        $this->db->execute($sql, $dados);
         return (int) $this->db->lastInsertId();
     }
 
-    /**
-     * Atualiza um produto existente.
-     */
     public function atualizar(int $id, array $dados): bool
     {
         $dados = $this->filtrarCampos($dados);
+
+        // Estoque não pode ser editado pelo form — só por MovimentacaoEstoque
+        unset($dados['estoque_atual']);
+
+        $this->normalizarServico($dados);   // ← garante a regra mesmo no update
         $this->validar($dados, $id);
 
-        $sets = implode(', ', array_map(fn($k) => "{$k} = :{$k}", array_keys($dados)));
+        $sets      = implode(', ', array_map(fn($k) => "{$k} = :{$k}", array_keys($dados)));
         $dados['id'] = $id;
 
-        $sql = "UPDATE produtos SET {$sets} WHERE id = :id";
-
-        return $this->db->execute($sql, $dados);
+        return $this->db->execute(
+            "UPDATE produtos SET {$sets} WHERE id = :id",
+            $dados
+        );
     }
 
-    /**
-     * Nome ajustado para bater com o Controller se necessário,
-     * mas mantido o core original com um apelido se precisar.
-     */
     public function alternarStatus(int $id): bool
     {
-        $sql = "UPDATE produtos SET ativo = NOT ativo WHERE id = :id";
-        return $this->db->execute($sql, ['id' => $id]);
+        return $this->db->execute(
+            "UPDATE produtos SET ativo = NOT ativo WHERE id = :id",
+            ['id' => $id]
+        );
     }
 
-    /**
-     * Atualiza o estoque_atual diretamente (usado pela MovimentacaoEstoque).
-     * Nunca chame isso sem registrar a movimentação antes!
-     */
     public function atualizarEstoque(int $id, float $novoEstoque): bool
     {
-        $sql = "UPDATE produtos SET estoque_atual = :estoque, preco_custo = COALESCE(:preco, preco_custo) WHERE id = :id";
-        return $this->db->execute($sql, [
-            'estoque' => $novoEstoque,
-            'preco'   => null,
-            'id'      => $id,
-        ]);
+        return $this->db->execute(
+            "UPDATE produtos SET estoque_atual = :estoque WHERE id = :id",
+            ['estoque' => $novoEstoque, 'id' => $id]
+        );
     }
 
-    /**
-     * Atualiza estoque e preço de custo juntos (chamado na entrada de compra).
-     */
     public function atualizarEstoqueECusto(int $id, float $novoEstoque, float $precoCusto): bool
     {
-        $sql = "UPDATE produtos SET estoque_atual = :estoque, preco_custo = :preco WHERE id = :id";
-        return $this->db->execute($sql, [
-            'estoque' => $novoEstoque,
-            'preco'   => $precoCusto,
-            'id'      => $id,
-        ]);
+        return $this->db->execute(
+            "UPDATE produtos SET estoque_atual = :estoque, preco_custo = :preco WHERE id = :id",
+            ['estoque' => $novoEstoque, 'preco' => $precoCusto, 'id' => $id]
+        );
     }
 
     // ----------------------------------------------------------------
-    // GERAÇÃO DE CÓDIGO INTERNO
+    // GERAÇÃO DE CÓDIGO
     // ----------------------------------------------------------------
 
-    /**
-     * Gera próximo código sequencial no formato PRD-000001.
-     */
     public function gerarCodigo(): string
     {
         $sql    = "SELECT MAX(CAST(SUBSTRING(codigo, 5) AS UNSIGNED)) AS ultimo FROM produtos WHERE codigo REGEXP '^PRD-[0-9]+$'";
@@ -251,34 +238,53 @@ class Produto
     }
 
     // ----------------------------------------------------------------
-    // METODOS AUXILIARES ADICIONADOS PARA ALIMENTAR O CONTROLLER
+    // HELPERS PARA O FORM
     // ----------------------------------------------------------------
 
-    /**
-     * Alimenta a listagem de categorias do formulário
-     */
     public function listarCategoriasForm(): array
     {
-        $sql = "SELECT id, nome FROM categorias ORDER BY nome ASC";
-        return $this->db->fetchAll($sql) ?? [];
+        return $this->db->fetchAll(
+            "SELECT id, nome, parent_id FROM categorias ORDER BY nome ASC"
+        ) ?? [];
     }
 
-    /**
-     * Alimenta a listagem de unidades de medida do formulário
-     */
     public function listarUnidadesForm(): array
     {
-        $sql = "SELECT id, nome, sigla FROM unidades ORDER BY nome ASC";
-        return $this->db->fetchAll($sql) ?? [];
+        return $this->db->fetchAll(
+            "SELECT id, nome, sigla FROM unidades ORDER BY nome ASC"
+        ) ?? [];
     }
 
     // ----------------------------------------------------------------
     // HELPERS PRIVADOS
     // ----------------------------------------------------------------
 
+    /**
+     * REGRA DE NEGÓCIO CENTRAL:
+     * Serviços não têm estoque — os campos são zerados/nulificados
+     * independentemente do que vier do formulário.
+     */
+    private function normalizarServico(array &$dados): void
+    {
+        if (($dados['tipo'] ?? 'produto') === 'servico') {
+            $dados['estoque_atual']  = null;
+            $dados['estoque_minimo'] = null;
+            $dados['estoque_maximo'] = null;
+        }
+    }
+
     private function filtrarCampos(array $dados): array
     {
-        return array_intersect_key($dados, array_flip($this->fillable));
+        $dados = array_intersect_key($dados, array_flip($this->fillable));
+
+        // Campos opcionais que devem ser NULL quando vazios
+        foreach (['codigo_barras', 'descricao', 'imagem', 'categoria_id', 'estoque_maximo'] as $campo) {
+            if (isset($dados[$campo]) && $dados[$campo] === '') {
+                $dados[$campo] = null;
+            }
+        }
+
+        return $dados;
     }
 
     private function validar(array $dados, ?int $id = null): void
@@ -288,10 +294,9 @@ class Produto
         }
 
         if (empty($dados['codigo'])) {
-            throw new \InvalidArgumentException('Código do produto é obrigatório.');
+            throw new \InvalidArgumentException('Código interno é obrigatório.');
         }
 
-        // Verifica duplicidade de código
         $sql    = "SELECT id FROM produtos WHERE codigo = :codigo" . ($id ? " AND id != :id" : "");
         $params = ['codigo' => $dados['codigo']];
         if ($id) $params['id'] = $id;
@@ -300,14 +305,13 @@ class Produto
             throw new \InvalidArgumentException("Já existe um produto com o código '{$dados['codigo']}'.");
         }
 
-        // Verifica duplicidade de código de barras (se informado)
         if (!empty($dados['codigo_barras'])) {
             $sql2    = "SELECT id FROM produtos WHERE codigo_barras = :cb" . ($id ? " AND id != :id" : "");
             $params2 = ['cb' => $dados['codigo_barras']];
             if ($id) $params2['id'] = $id;
 
             if ($this->db->fetchOne($sql2, $params2)) {
-                throw new \InvalidArgumentException("Já existe um produto com este código de barras.");
+                throw new \InvalidArgumentException('Já existe um produto com este código de barras.');
             }
         }
     }

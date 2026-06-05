@@ -56,7 +56,8 @@ class FornecedorController extends Controller
     public function store(Request $request): void
     {
         try {
-            $dados         = $this->normalizarDados($request->all());
+
+            $dados = $this->normalizarDados($request->all());
             $dados['ativo'] = 1;
 
             $id = $this->model->criar($dados);
@@ -64,14 +65,15 @@ class FornecedorController extends Controller
             Session::flash('success', 'Fornecedor cadastrado com sucesso!');
             redirect('/fornecedores/' . $id);
         } catch (\InvalidArgumentException $e) {
+
             Session::flash('error', $e->getMessage());
             redirect('/fornecedores/criar');
         } catch (\Exception $e) {
-            Session::flash('error', APP_DEBUG ? $e->getMessage() : 'Erro ao salvar fornecedor.');
+
+            Session::flash('error', 'Não foi possível cadastrar o fornecedor.');
             redirect('/fornecedores/criar');
         }
     }
-
     // ----------------------------------------------------------------
     // GET /fornecedores/{id}
     // ----------------------------------------------------------------
@@ -116,16 +118,20 @@ class FornecedorController extends Controller
     public function update(Request $request, int $id): void
     {
         try {
+
             $dados = $this->normalizarDados($request->all());
+
             $this->model->atualizar($id, $dados);
 
             Session::flash('success', 'Fornecedor atualizado com sucesso!');
             redirect('/fornecedores/' . $id);
         } catch (\InvalidArgumentException $e) {
+
             Session::flash('error', $e->getMessage());
             redirect("/fornecedores/{$id}/editar");
         } catch (\Exception $e) {
-            Session::flash('error', APP_DEBUG ? $e->getMessage() : 'Erro ao atualizar fornecedor.');
+
+            Session::flash('error', 'Erro ao atualizar fornecedor. Tente novamente.');
             redirect("/fornecedores/{$id}/editar");
         }
     }
@@ -149,9 +155,24 @@ class FornecedorController extends Controller
     // ----------------------------------------------------------------
     private function normalizarDados(array $dados): array
     {
-        // Remove pontuação de CNPJ/CPF para armazenar limpo
-        if (!empty($dados['cnpj_cpf'])) {
-            $dados['cnpj_cpf'] = preg_replace('/\D/', '', $dados['cnpj_cpf']);
+        // Remove pontuação de CNPJ/CPF
+        if (($dados['tipo_pessoa'] ?? '') === 'juridica' && empty($dados['cnpj_cpf'])) {
+            throw new \InvalidArgumentException(
+                'CNPJ é obrigatório para fornecedores Pessoa Jurídica.'
+            );
+        }
+
+        if (($dados['tipo_pessoa'] ?? '') === 'fisica' && empty($dados['cnpj_cpf'])) {
+            throw new \InvalidArgumentException(
+                'CPF é obrigatório para fornecedores Pessoa Física.'
+            );
+        }
+
+        // Validação PF
+        if (($dados['tipo_pessoa'] ?? '') === 'PF' && empty($dados['cnpj_cpf'])) {
+            throw new \InvalidArgumentException(
+                'CPF é obrigatório para fornecedores Pessoa Física.'
+            );
         }
 
         $toFloat = fn($v) => $v !== '' && $v !== null

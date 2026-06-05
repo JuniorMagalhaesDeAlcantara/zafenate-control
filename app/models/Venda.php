@@ -41,10 +41,7 @@ class Venda
 
                 // Lock para evitar race condition
                 $snap = $this->db->fetchOne(
-                    "SELECT estoque_atual, preco_custo
-                        FROM produtos
-                        WHERE id = :id
-                        FOR UPDATE",
+                    "SELECT estoque_atual, preco_custo, tipo FROM produtos WHERE id = :id FOR UPDATE",
                     ['id' => $item['id']]
                 );
 
@@ -52,6 +49,30 @@ class Venda
                     throw new RuntimeException("Produto ID {$item['id']} não encontrado.");
                 }
 
+                // ← Serviços não têm estoque — pula validação e movimentação
+                if ($snap['tipo'] === 'servico') {
+                    $this->db->execute("
+        INSERT INTO venda_itens
+            (venda_id, produto_id, produto_nome, produto_codigo,
+             unidade_sigla, quantidade, preco_unitario, preco_custo, subtotal)
+        VALUES
+            (:venda_id, :produto_id, :produto_nome, :produto_codigo,
+             :unidade_sigla, :quantidade, :preco_unitario, :preco_custo, :subtotal)
+    ", [
+                        'venda_id'       => $vendaId,
+                        'produto_id'     => $item['id'],
+                        'produto_nome'   => $item['nome'],
+                        'produto_codigo' => $item['codigo']        ?? 'SEM_COD',
+                        'unidade_sigla'  => $item['unidade_sigla'] ?? 'UN',
+                        'quantidade'     => $item['qty'],
+                        'preco_unitario' => $item['preco'],
+                        'preco_custo'    => $snap['preco_custo'] ?? 0.00,
+                        'subtotal'       => round($item['qty'] * $item['preco'], 2),
+                    ]);
+                    continue; // ← pula o UPDATE de estoque e a movimentação
+                }
+
+                // Daqui pra baixo: só produtos físicos
                 $estoqueAntes  = (float) $snap['estoque_atual'];
                 $estoqueDepois = $estoqueAntes - (float) $item['qty'];
 

@@ -1087,13 +1087,14 @@
             <div class="pdv-grid" id="pdv-grid">
                 <?php foreach ($produtos as $p): ?>
                     <div
-                        class="pdv-product-card <?= $p['estoque_atual'] <= 0 ? 'out-of-stock' : '' ?>"
+                        class="pdv-product-card <?= ($p['tipo'] !== 'servico' && $p['estoque_atual'] <= 0) ? 'out-of-stock' : '' ?>"
                         data-produto="<?= htmlspecialchars(json_encode([
                                             'id'            => (int)$p['id'],
                                             'nome'          => $p['nome'],
                                             'preco'         => (float)$p['preco_venda'],
                                             'preco_custo'   => (float)($p['preco_custo'] ?? 0),
-                                            'estoque'       => (float)$p['estoque_atual'],
+                                            'estoque'       => (float)($p['estoque_atual'] ?? 0),
+                                            'tipo'          => $p['tipo'] ?? 'produto',          // ← ISSO estava faltando
                                             'codigo'        => $p['codigo'] ?? '',
                                             'unidade_sigla' => $p['unidade_sigla'] ?? 'UN',
                                         ]), ENT_QUOTES, 'UTF-8') ?>"
@@ -1524,6 +1525,7 @@
                 preco:         parseFloat(p.preco_venda),
                 preco_custo:   parseFloat(p.preco_custo || 0),
                 estoque:       parseFloat(p.estoque_atual),
+                tipo:          p.tipo || 'produto',
                 codigo:        p.codigo || '',
                 unidade_sigla: p.unidade_sigla || "UN"
             })})'>
@@ -1534,7 +1536,9 @@
                 </div>
                 <div style="text-align:right;flex-shrink:0">
                     <div class="pdv-result-price">R$ ${formatMoney(p.preco_venda)}</div>
-                    <div class="pdv-result-stock">${parseInt(p.estoque_atual)} ${escHtml(p.unidade_sigla || 'UN')}</div>
+                    <div class="pdv-result-stock">
+                        ${p.tipo === 'servico' ? '∞ (serviço)' : parseInt(p.estoque_atual) + ' ' + escHtml(p.unidade_sigla || 'UN')}
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -1554,17 +1558,17 @@
             const id = parseInt(produto.id);
             // Garante que o estoque é tratado como número puro (remove problemas de máscara ou strings)
             const estoque = parseFloat(produto.estoque);
+            const isServico = produto.tipo === 'servico';
 
-            if (isNaN(estoque) || estoque <= 0) {
+            if (!isServico && (isNaN(estoque) || estoque <= 0)) {
                 alert('Produto sem estoque disponível no sistema!');
                 return;
             }
 
-            // Procura o item na variável 'carrinho' (nome correto no seu script)
             const idx = carrinho.findIndex(i => i.id === id);
 
             if (idx >= 0) {
-                if (carrinho[idx].qty + 1 > estoque) {
+                if (!isServico && carrinho[idx].qty + 1 > estoque) {
                     alert('Estoque insuficiente! Estoque máximo: ' + estoque + ' UN');
                     return;
                 }
@@ -1576,7 +1580,8 @@
                     preco: parseFloat(produto.preco),
                     preco_custo: parseFloat(produto.preco_custo || 0),
                     qty: 1,
-                    estoque: estoque,
+                    estoque: isServico ? Infinity : estoque,
+                    tipo: produto.tipo || 'produto',
                     codigo: produto.codigo || '',
                     unidade_sigla: produto.unidade_sigla || 'UN',
                 });
@@ -1646,7 +1651,7 @@
                 removeItem(idx);
                 return;
             }
-            if (nova > item.estoque) {
+            if (item.tipo !== 'servico' && nova > item.estoque) {
                 alert('Estoque insuficiente!');
                 return;
             }
@@ -1660,7 +1665,7 @@
                 removeItem(idx);
                 return;
             }
-            if (qty > carrinho[idx].estoque) {
+            if (carrinho[idx].tipo !== 'servico' && qty > carrinho[idx].estoque) {
                 alert('Estoque insuficiente!');
                 return;
             }

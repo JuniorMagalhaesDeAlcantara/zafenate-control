@@ -948,3 +948,64 @@ VALUES (1, 'Minha Empresa', 'Minha Empresa')
 ON DUPLICATE KEY UPDATE id=id;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- Migration: adiciona campo `tipo` na tabela produtos
+-- Execute uma vez no banco
+-- ============================================================
+ 
+ALTER TABLE produtos
+    ADD COLUMN tipo ENUM('produto', 'servico') NOT NULL DEFAULT 'produto'
+    AFTER codigo_barras;
+ 
+-- Todos os registros existentes ficam como 'produto' (DEFAULT)
+-- Nenhum dado é perdido
+ 
+
+-- Executar para limpar dados de teste e evitar conflitos com as novas migrações. Cuidado: isso irá apagar TODOS os dados das tabelas listadas, então só execute em ambiente de desenvolvimento ou teste!
+-- limpa dados de teste para evitar conflitos com as novas migrações
+SET FOREIGN_KEY_CHECKS = 0;
+
+DELETE FROM venda_pagamentos;
+DELETE FROM venda_itens;
+DELETE FROM contas_receber;
+DELETE FROM vendas;
+
+DELETE FROM compra_itens;
+DELETE FROM compras;
+
+DELETE FROM movimentacoes_estoque;
+
+DELETE FROM contas_pagar;
+
+DELETE FROM caixa_movimentos;
+DELETE FROM caixas;
+
+DELETE FROM clientes;
+DELETE FROM fornecedores;
+
+DELETE FROM produtos;
+
+DELETE FROM categorias;
+DELETE FROM categorias_financeiras;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Reinicia os AUTO_INCREMENT para evitar conflitos com IDs pré-existentes
+ALTER TABLE vendas AUTO_INCREMENT = 1;
+ALTER TABLE venda_itens AUTO_INCREMENT = 1;
+ALTER TABLE venda_pagamentos AUTO_INCREMENT = 1;
+ALTER TABLE compras AUTO_INCREMENT = 1;
+ALTER TABLE compra_itens AUTO_INCREMENT = 1;
+ALTER TABLE contas_receber AUTO_INCREMENT = 1;
+ALTER TABLE contas_pagar AUTO_INCREMENT = 1;
+ALTER TABLE caixa_movimentos AUTO_INCREMENT = 1;
+ALTER TABLE caixas AUTO_INCREMENT = 1;
+ALTER TABLE clientes AUTO_INCREMENT = 1;
+ALTER TABLE fornecedores AUTO_INCREMENT = 1;
+ALTER TABLE produtos AUTO_INCREMENT = 1;
+ALTER TABLE movimentacoes_estoque AUTO_INCREMENT = 1;
+ALTER TABLE categorias AUTO_INCREMENT = 1;
+ALTER TABLE categorias_financeiras AUTO_INCREMENT = 1;
+
+

@@ -158,24 +158,64 @@ class Fornecedor
     public function criar(array $dados): int
     {
         $dados = $this->filtrarCampos($dados);
-        $this->validar($dados);
+        $dados['cnpj_cpf'] = $this->normalizarCnpj($dados['cnpj_cpf'] ?? null);
+
+        $this->validar($dados); // ← ADICIONAR AQUI
 
         $cols  = implode(', ', array_keys($dados));
         $binds = ':' . implode(', :', array_keys($dados));
+        try {
+            $this->db->execute(
+                "INSERT INTO fornecedores ({$cols}) VALUES ({$binds})",
+                $dados
+            );
 
-        $this->db->execute("INSERT INTO fornecedores ({$cols}) VALUES ({$binds})", $dados);
-        return $this->db->lastInsertId();
+            return $this->db->lastInsertId();
+        } catch (\PDOException $e) {
+
+            if (str_contains($e->getMessage(), 'uk_fornecedor_cnpj')) {
+                throw new \InvalidArgumentException(
+                    'Já existe um fornecedor cadastrado com este CPF/CNPJ.'
+                );
+            }
+
+            throw new \RuntimeException(
+                'Erro ao cadastrar fornecedor. Tente novamente.'
+            );
+        }
     }
 
     public function atualizar(int $id, array $dados): bool
     {
         $dados = $this->filtrarCampos($dados);
-        $this->validar($dados, $id);
+        $dados['cnpj_cpf'] = $this->normalizarCnpj($dados['cnpj_cpf'] ?? null);
 
-        $sets        = implode(', ', array_map(fn($k) => "{$k} = :{$k}", array_keys($dados)));
+        $this->validar($dados, $id); // ← ADICIONAR AQUI (passa $id pra excluir o próprio registro da checagem)
+
+        $sets = implode(', ', array_map(
+            fn($k) => "{$k} = :{$k}",
+            array_keys($dados)
+        ));
+
         $dados['id'] = $id;
 
-        return $this->db->execute("UPDATE fornecedores SET {$sets} WHERE id = :id", $dados);
+        try {
+            return $this->db->execute(
+                "UPDATE fornecedores SET {$sets} WHERE id = :id",
+                $dados
+            );
+        } catch (\PDOException $e) {
+
+            if (str_contains($e->getMessage(), 'uk_fornecedor_cnpj')) {
+                throw new \InvalidArgumentException(
+                    'Já existe outro fornecedor com este CPF/CNPJ.'
+                );
+            }
+
+            throw new \RuntimeException(
+                'Erro ao atualizar fornecedor. Tente novamente.'
+            );
+        }
     }
 
     public function alternarStatus(int $id): bool
@@ -184,6 +224,15 @@ class Fornecedor
             "UPDATE fornecedores SET ativo = NOT ativo WHERE id = :id",
             ['id' => $id]
         );
+    }
+
+    private function normalizarCnpj(?string $cnpj): ?string
+    {
+        if (empty($cnpj)) {
+            return null;
+        }
+
+        return preg_replace('/\D/', '', $cnpj);
     }
 
     // ----------------------------------------------------------------

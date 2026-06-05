@@ -568,9 +568,9 @@
                                         value="<?= e(old('prazo_pagamento')) ?>">
                                 </div>
                                 <div class="nc-field">
-                                    <label>Data de vencimento</label>
+                                    <label>Data de vencimento <span style="color:var(--color-danger,#ef4444);">*</span></label>
                                     <input type="date" name="vencimento" class="form-control"
-                                        value="<?= e(old('vencimento')) ?>">
+                                        value="<?= e(old('vencimento')) ?>" required>
                                 </div>
                             </div>
                         </div>

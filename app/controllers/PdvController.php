@@ -44,20 +44,20 @@ class PdvController extends Controller
 
         $produtos = $this->db->fetchAll(
             "SELECT p.id, p.nome, p.preco_venda, p.preco_custo, p.estoque_atual,
-            p.codigo, COALESCE(u.sigla, 'UN') AS unidade_sigla,
+            p.tipo, p.codigo, COALESCE(u.sigla, 'UN') AS unidade_sigla,  -- ← adiciona p.tipo
             COALESCE(SUM(vi.quantidade), 0) AS total_vendido
-                FROM produtos p
-                LEFT JOIN unidades u ON u.id = p.unidade_id
-                LEFT JOIN venda_itens vi ON vi.produto_id = p.id
-                    AND vi.venda_id IN (
-                        SELECT id FROM vendas
-                        WHERE status = 'finalizada'
-                        AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                    )
-                WHERE p.ativo = 1
-                GROUP BY p.id
-                ORDER BY total_vendido DESC, p.nome ASC
-                LIMIT 16"
+        FROM produtos p
+        LEFT JOIN unidades u ON u.id = p.unidade_id
+        LEFT JOIN venda_itens vi ON vi.produto_id = p.id
+            AND vi.venda_id IN (
+                SELECT id FROM vendas
+                WHERE status = 'finalizada'
+                AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            )
+        WHERE p.ativo = 1
+        GROUP BY p.id
+        ORDER BY total_vendido DESC, p.nome ASC
+        LIMIT 16"
         );
 
         $clientes = $this->db->fetchAll(
@@ -95,15 +95,13 @@ class PdvController extends Controller
 
         $produtos = $this->db->fetchAll(
             "SELECT p.id, p.nome, p.preco_venda, p.estoque_atual,
-                    p.codigo, p.codigo_barras, u.sigla AS unidade_sigla
-             FROM produtos p
-             LEFT JOIN unidades u ON u.id = p.unidade_id
-             WHERE p.ativo = 1
-               AND (p.nome           LIKE :busca_nome
-                OR  p.codigo         LIKE :busca_codigo
-                OR  p.codigo_barras  LIKE :busca_barras)
-             ORDER BY p.nome ASC
-             LIMIT 10",
+            p.tipo, p.codigo, p.codigo_barras, u.sigla AS unidade_sigla  -- ← adiciona p.tipo
+                FROM produtos p
+                LEFT JOIN unidades u ON u.id = p.unidade_id
+                WHERE p.ativo = 1
+                AND (p.nome LIKE :busca_nome OR p.codigo LIKE :busca_codigo OR p.codigo_barras LIKE :busca_barras)
+                ORDER BY p.nome ASC
+                LIMIT 10",
             [
                 'busca_nome'    => $termo,
                 'busca_codigo'  => $termo,

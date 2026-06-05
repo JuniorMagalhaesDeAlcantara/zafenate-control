@@ -97,12 +97,14 @@ $v = fn(string $campo, mixed $default = '') => e($fornecedor[$campo] ?? $default
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label" id="label-doc">CNPJ</label>
+                                <label class="form-label" id="label-doc">CNPJ <span>*</span></label>
                                 <input type="text" name="cnpj_cpf" class="form-control"
                                     id="campo-doc"
                                     value="<?= !empty($fornecedor['cnpj_cpf']) ? formatarDocumento($fornecedor['cnpj_cpf']) : '' ?>"
-                                    maxlength="18" placeholder="00.000.000/0000-00"
-                                    oninput="mascaraDoc(this)">
+                                    maxlength="18"
+                                    placeholder="00.000.000/0000-00"
+                                    oninput="mascaraDoc(this)"
+                                    required>
                             </div>
 
                             <div class="form-group" id="grupo-ie">
@@ -419,13 +421,14 @@ $v = fn(string $campo, mixed $default = '') => e($fornecedor[$campo] ?? $default
         const doc = document.getElementById('campo-doc');
         const label = document.getElementById('label-doc');
         const ie = document.getElementById('grupo-ie');
+
         if (tipo === 'fisica') {
-            label.textContent = 'CPF';
+            label.innerHTML = 'CPF <span>*</span>';
             doc.placeholder = '000.000.000-00';
             doc.maxLength = 14;
             ie.style.display = 'none';
         } else {
-            label.textContent = 'CNPJ';
+            label.innerHTML = 'CNPJ <span>*</span>';
             doc.placeholder = '00.000.000/0000-00';
             doc.maxLength = 18;
             ie.style.display = '';
@@ -475,7 +478,8 @@ $v = fn(string $campo, mixed $default = '') => e($fornecedor[$campo] ?? $default
                 document.getElementById('uf').value = d.uf || '';
             }
         } catch (e) {
-            /* silencia */ }
+            /* silencia */
+        }
     }
 
     // ── Avaliação por estrelas ──

@@ -84,7 +84,7 @@ if (!function_exists('redirect')) {
         exit;
     }
 
-if (!function_exists('formatarFormaPagamento')) {
+    if (!function_exists('formatarFormaPagamento')) {
         function formatarFormaPagamento(?string $forma): string
         {
             return match ($forma) {

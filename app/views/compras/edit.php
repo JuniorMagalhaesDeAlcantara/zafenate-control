@@ -635,9 +635,9 @@
                                         value="<?= e($compra['prazo_pagamento']) ?>">
                                 </div>
                                 <div class="nc-field">
-                                    <label>Data de vencimento</label>
+                                    <label>Data de vencimento <span style="color:var(--color-danger,#ef4444);">*</span></label>
                                     <input type="date" name="vencimento" class="form-control"
-                                        value="<?= e($compra['vencimento']) ?>">
+                                        value="<?= e($compra['vencimento']) ?>" required>
                                 </div>
                             </div>
                         </div>

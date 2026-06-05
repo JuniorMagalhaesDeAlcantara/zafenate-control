@@ -227,4 +227,40 @@ if (!function_exists('dd')) {
 
         return ($permissoes[$modulo] ?? 'false') !== 'false';
     }
+
+    if (!function_exists('formatarCpfCnpj')) {
+        /**
+         * Formata CPF ou CNPJ para padrão BR.
+         * CPF: 000.000.000-00
+         * CNPJ: 00.000.000/0000-00
+         */
+        function formatarCpfCnpj(?string $value): string
+        {
+            if (!$value) return '';
+
+            // remove tudo que não for número
+            $value = preg_replace('/\D/', '', $value);
+
+            // CPF
+            if (strlen($value) === 11) {
+                return preg_replace(
+                    '/(\d{3})(\d{3})(\d{3})(\d{2})/',
+                    '$1.$2.$3-$4',
+                    $value
+                );
+            }
+
+            // CNPJ
+            if (strlen($value) === 14) {
+                return preg_replace(
+                    '/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/',
+                    '$1.$2.$3/$4-$5',
+                    $value
+                );
+            }
+
+            // fallback (se vier estranho)
+            return $value;
+        }
+    }
 }
