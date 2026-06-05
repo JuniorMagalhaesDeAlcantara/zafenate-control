@@ -184,7 +184,7 @@
 <body>
 
     <?php
-    $nomeEmpresa = $config['empresa_nome']    ?? 'Estabelecimento';
+    $nomeEmpresa = $config['nome_fantasia']    ?? 'Estabelecimento';
     $slogan      = $config['empresa_slogan']  ?? '';
     $cnpj        = $config['empresa_cnpj']    ?? '';
     $telefone    = $config['empresa_telefone'] ?? '';

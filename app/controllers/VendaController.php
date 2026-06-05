@@ -147,9 +147,11 @@ class VendaController extends Controller
     private function carregarConfig(): array
     {
         try {
-            $db   = \App\Core\Database::getInstance();
-            $rows = $db->fetchAll("SELECT chave, valor FROM configuracoes");
-            return array_column($rows, 'valor', 'chave');
+            $db = \App\Core\Database::getInstance();
+
+            return $db->fetchOne(
+                "SELECT * FROM config_empresa WHERE id = 1 LIMIT 1"
+            ) ?: [];
         } catch (\Throwable) {
             return [];
         }
