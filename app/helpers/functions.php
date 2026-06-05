@@ -216,4 +216,15 @@ if (!function_exists('dd')) {
     {
         return $_POST[$key] ?? $default;
     }
+
+    function can(string $modulo): bool
+    {
+        if (\App\Core\Session::get('usuario_nivel') === 'admin') {
+            return true;
+        }
+
+        $permissoes = \App\Core\Session::get('permissoes', []);
+
+        return ($permissoes[$modulo] ?? 'false') !== 'false';
+    }
 }

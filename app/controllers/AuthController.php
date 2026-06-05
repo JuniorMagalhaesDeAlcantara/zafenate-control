@@ -27,51 +27,79 @@ class AuthController extends Controller
     /**
      * Processa o envio do formulário de login (POST)
      */
-    public function login(\App\Core\Request $request): void // <-- Adicione o parâmetro aqui!
+    public function login(\App\Core\Request $request): void
     {
-        // ❌ Remova a linha " $request = new \App\Core\Request(); " se tiver colocado ela aqui dentro antes.
-
-        // 1. Captura os dados do formulário usando o objeto injetado pelo roteador
+        // 1. Captura os dados do formulário
         $email = trim($request->input('email', ''));
         $senha = $request->input('senha', '');
 
-        // 2. Validação simples de campos vazios
+        // 2. Validação simples
         if (empty($email) || empty($senha)) {
             flash('error', 'Por favor, preencha todos os campos.');
             redirect('/login');
         }
 
-        // 3. Procura o usuário no banco de dados instanciando o Model no seu padrão
+        // 3. Busca usuário
         $modelUsuario = new \App\Models\Usuario();
         $usuario = $modelUsuario->buscarPorEmail($email);
 
-        // 4. Se o usuário existir, verifica se a senha bate com o hash criptografado
+        // 4. Valida senha
         if ($usuario && password_verify($senha, $usuario['senha'])) {
 
-            // Registra as variáveis na Sessão utilizando a sua classe Core Session
+            // Busca perfil do usuário
+            $perfil = null;
+
+            if (!empty($usuario['perfil_id'])) {
+                $perfilModel = new \App\Models\Perfil();
+                $perfil = $perfilModel->buscarPorId((int)$usuario['perfil_id']);
+            }
+
+            // Dados básicos
             \App\Core\Session::set('usuario_id', $usuario['id']);
             \App\Core\Session::set('usuario_nome', $usuario['nome']);
             \App\Core\Session::set('usuario_nivel', $usuario['nivel']);
             \App\Core\Session::set('usuario', $usuario);
 
-            // Login feito com sucesso! Redireciona para o Dashboard
+            // Dados do perfil
+            \App\Core\Session::set('perfil_id', $usuario['perfil_id'] ?? null);
+            \App\Core\Session::set('perfil_nome', $perfil['nome'] ?? null);
+
+            // Permissões do perfil
+            \App\Core\Session::set(
+                'permissoes',
+                $perfil['permissoes'] ?? []
+            );
+          
             redirect('/dashboard');
         }
 
-        // 5. Se falhar o e-mail ou a senha, devolve para o login com mensagem de erro
+        // 5. Falha no login
         flash('error', 'E-mail ou senha incorretos.');
         redirect('/login');
     }
-
     /**
      * Faz o logout do usuário
      */
     public function logout(): void
     {
-        // Limpa a sessão usando o helper/core e joga para o login
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
         }
+
+        session_destroy();
+
         redirect('/login');
     }
 }

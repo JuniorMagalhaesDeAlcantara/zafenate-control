@@ -24,7 +24,7 @@ $router->group(['middleware' => ['guest']], function (Router $r) {
     $r->post('/login',   'AuthController@login');
 });
 
-$router->get('/logout', 'AuthController@logout');
+$router->post('/logout', 'AuthController@logout');
 
 // ----------------------------------------------------------------
 // Rotas protegidas (requerem autenticação E proteção CSRF)
@@ -137,5 +137,19 @@ $router->group(['middleware' => ['auth']], function (Router $r) {
     $r->get('/categorias/{id}/editar',   'CategoriaController@edit');
     $r->post('/categorias/{id}/editar',  'CategoriaController@update');
     $r->post('/categorias/{id}/status',  'CategoriaController@toggleStatus');
-    $r->post('/categorias/ajax',         'CategoriaController@storeAjax');   // criação rápida (modal)
+    $r->post('/categorias/ajax',         'CategoriaController@storeAjax');
+
+    // ── Configurações ────────────────────────────────────────
+    $r->get('/config/empresa',                'ConfigController@empresa');
+    $r->post('/config/empresa',               'ConfigController@empresaSave');
+
+    $r->get('/config/usuarios',               'ConfigController@usuarios');
+    $r->get('/config/usuarios/criar',         'ConfigController@usuarioCreate');
+    $r->post('/config/usuarios/criar',        'ConfigController@usuarioStore');
+    $r->get('/config/usuarios/{id}/editar',   'ConfigController@usuarioEdit');
+    $r->post('/config/usuarios/{id}/editar',  'ConfigController@usuarioUpdate');
+    $r->post('/config/usuarios/{id}/status',  'ConfigController@usuarioToggle');
+
+    $r->get('/config/perfis',                 'ConfigController@perfis');
+    $r->post('/config/perfis',                'ConfigController@perfisSave');
 });

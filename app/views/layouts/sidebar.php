@@ -38,122 +38,158 @@ if (!function_exists('activeRoute')) {
 
     <nav class="zf-nav">
 
-        <!-- ── Principal ──────────────────────────────────────── -->
+        <!-- Principal -->
         <div class="zf-nav-section">Principal</div>
 
-        <a href="/dashboard" class="zf-nav-item <?= activeRoute('dashboard') ?>">
-            <i class="ti ti-layout-dashboard"></i>
-            Dashboard
-            <span class="zf-nav-dot"></span>
-        </a>
+        <?php if (can('dashboard')): ?>
+            <a href="/dashboard" class="zf-nav-item <?= activeRoute('dashboard') ?>">
+                <i class="ti ti-layout-dashboard"></i>
+                Dashboard
+                <span class="zf-nav-dot"></span>
+            </a>
+        <?php endif; ?>
 
-        <a href="/caixa" class="zf-nav-item <?= activeRoute('caixa') ?>">
-            <i class="ti ti-coin"></i>
-            Caixa
-            <span class="zf-nav-dot"></span>
-        </a>
+        <?php if (can('vendas')): ?>
+            <a href="/caixa" class="zf-nav-item <?= activeRoute('caixa') ?>">
+                <i class="ti ti-coin"></i>
+                Caixa
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/pdv" class="zf-nav-item <?= activeRoute('pdv') ?>">
-            <i class="ti ti-device-desktop"></i>
-            PDV
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/pdv" class="zf-nav-item <?= activeRoute('pdv') ?>">
+                <i class="ti ti-device-desktop"></i>
+                PDV
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/vendas" class="zf-nav-item <?= activeRoute('vendas') ?>">
-            <i class="ti ti-receipt"></i>
-            Vendas
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/vendas" class="zf-nav-item <?= activeRoute('vendas') ?>">
+                <i class="ti ti-receipt"></i>
+                Vendas
+                <span class="zf-nav-dot"></span>
+            </a>
+        <?php endif; ?>
 
-        <!-- ── Financeiro ─────────────────────────────────────── -->
-        <div class="zf-nav-section">Financeiro</div>
 
-        <a href="/financeiro" class="zf-nav-item <?= activeRoute('financeiro') ?>">
-            <i class="ti ti-wallet"></i>
-            Visão Geral
-            <span class="zf-nav-dot"></span>
-        </a>
+        <!-- Financeiro -->
+        <?php if (can('financeiro')): ?>
 
-        <a href="/financeiro/receber" class="zf-nav-item <?= activeRoute('financeiro/receber') ?>">
-            <i class="ti ti-cash-banknote"></i>
-            Contas a Receber
-            <span class="zf-nav-dot"></span>
-        </a>
+            <div class="zf-nav-section">Financeiro</div>
 
-        <a href="/financeiro/pagar" class="zf-nav-item <?= activeRoute('financeiro/pagar') ?>">
-            <i class="ti ti-credit-card-pay"></i>
-            Contas a Pagar
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/financeiro" class="zf-nav-item <?= activeRoute('financeiro') ?>">
+                <i class="ti ti-wallet"></i>
+                Visão Geral
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/financeiro/fluxo" class="zf-nav-item <?= activeRoute('financeiro/fluxo') ?>">
-            <i class="ti ti-chart-line"></i>
-            Fluxo de Caixa
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/financeiro/receber" class="zf-nav-item <?= activeRoute('financeiro/receber') ?>">
+                <i class="ti ti-cash-banknote"></i>
+                Contas a Receber
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/financeiro/dre" class="zf-nav-item <?= activeRoute('financeiro/dre') ?>">
-            <i class="ti ti-report-money"></i>
-            DRE
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/financeiro/pagar" class="zf-nav-item <?= activeRoute('financeiro/pagar') ?>">
+                <i class="ti ti-credit-card-pay"></i>
+                Contas a Pagar
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <!-- ── Estoque ────────────────────────────────────────── -->
-        <div class="zf-nav-section">Estoque</div>
+            <a href="/financeiro/fluxo" class="zf-nav-item <?= activeRoute('financeiro/fluxo') ?>">
+                <i class="ti ti-chart-line"></i>
+                Fluxo de Caixa
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/compras" class="zf-nav-item <?= activeRoute('compras') ?>">
-            <i class="ti ti-shopping-cart-plus"></i>
-            Compras
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/financeiro/dre" class="zf-nav-item <?= activeRoute('financeiro/dre') ?>">
+                <i class="ti ti-report-money"></i>
+                DRE
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/estoque" class="zf-nav-item <?= activeRoute('estoque') ?>">
-            <i class="ti ti-package"></i>
-            Movimentações
-            <span class="zf-nav-dot"></span>
-        </a>
+        <?php endif; ?>
 
-        <a href="/produtos" class="zf-nav-item <?= activeRoute('produtos') ?>">
-            <i class="ti ti-box"></i>
-            Produtos
-            <span class="zf-nav-dot"></span>
-        </a>
 
-         <a href="/categorias" class="zf-nav-item <?= activeRoute('categorias') ?>">
-            <i class="ti ti-folder"></i>
-            Categorias de Produtos
-            <span class="zf-nav-dot"></span>
-        </a>
+        <!-- Estoque -->
+        <?php if (can('estoque')): ?>
 
-        <!-- ── Cadastros ──────────────────────────────────────── -->
-        <div class="zf-nav-section">Cadastros</div>
+            <div class="zf-nav-section">Estoque</div>
 
-        <a href="/clientes" class="zf-nav-item <?= activeRoute('clientes') ?>">
-            <i class="ti ti-users"></i>
-            Clientes
-            <span class="zf-nav-dot"></span>
-        </a>
+            <?php if (can('compras')): ?>
+                <a href="/compras" class="zf-nav-item <?= activeRoute('compras') ?>">
+                    <i class="ti ti-shopping-cart-plus"></i>
+                    Compras
+                    <span class="zf-nav-dot"></span>
+                </a>
+            <?php endif; ?>
 
-        <a href="/fornecedores" class="zf-nav-item <?= activeRoute('fornecedores') ?>">
-            <i class="ti ti-truck"></i>
-            Fornecedores
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/estoque" class="zf-nav-item <?= activeRoute('estoque') ?>">
+                <i class="ti ti-package"></i>
+                Movimentações
+                <span class="zf-nav-dot"></span>
+            </a>
 
-               <!-- ── Sistema ────────────────────────────────────────── -->
-        <div class="zf-nav-section">Sistema</div>
+            <a href="/produtos" class="zf-nav-item <?= activeRoute('produtos') ?>">
+                <i class="ti ti-box"></i>
+                Produtos
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/relatorios/estoque" class="zf-nav-item <?= activeRoute('relatorios') ?>">
-            <i class="ti ti-chart-bar"></i>
-            Relatórios
-            <span class="zf-nav-dot"></span>
-        </a>
+            <a href="/categorias" class="zf-nav-item <?= activeRoute('categorias') ?>">
+                <i class="ti ti-folder"></i>
+                Categorias de Produtos
+                <span class="zf-nav-dot"></span>
+            </a>
 
-        <a href="/configuracoes" class="zf-nav-item <?= activeRoute('configuracoes') ?>">
-            <i class="ti ti-settings"></i>
-            Configurações
-            <span class="zf-nav-dot"></span>
-        </a>
+        <?php endif; ?>
+
+
+        <!-- Cadastros -->
+        <?php if (can('clientes') || can('fornecedores')): ?>
+
+            <div class="zf-nav-section">Cadastros</div>
+
+            <?php if (can('clientes')): ?>
+                <a href="/clientes" class="zf-nav-item <?= activeRoute('clientes') ?>">
+                    <i class="ti ti-users"></i>
+                    Clientes
+                    <span class="zf-nav-dot"></span>
+                </a>
+            <?php endif; ?>
+
+            <?php if (can('fornecedores')): ?>
+                <a href="/fornecedores" class="zf-nav-item <?= activeRoute('fornecedores') ?>">
+                    <i class="ti ti-truck"></i>
+                    Fornecedores
+                    <span class="zf-nav-dot"></span>
+                </a>
+            <?php endif; ?>
+
+        <?php endif; ?>
+
+
+        <!-- Configurações -->
+        <?php if (can('configuracoes')): ?>
+
+            <div class="zf-nav-section">Configurações</div>
+
+            <a href="/config/empresa"
+                class="zf-nav-item <?= activeRoute('config/empresa') ?>">
+                <i class="ti ti-building"></i>
+                Empresa
+            </a>
+
+            <a href="/config/usuarios"
+                class="zf-nav-item <?= activeRoute('config/usuarios') ?>">
+                <i class="ti ti-users"></i>
+                Usuários
+            </a>
+
+            <a href="/config/perfis"
+                class="zf-nav-item <?= activeRoute('config/perfis') ?>">
+                <i class="ti ti-shield-lock"></i>
+                Perfis de Acesso
+            </a>
+
+        <?php endif; ?>
 
     </nav>
 

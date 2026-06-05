@@ -859,4 +859,92 @@ MODIFY COLUMN forma ENUM(
     'fiado',
     'voucher',
     'outros'
-) NOT NULL;       
+) NOT NULL;  
+
+-- ============================================================
+-- ZAFENATE CONTROL — 08 - Migration: Configurações
+-- Tabelas: perfis, config_empresa + ALTER usuarios
+-- ============================================================
+
+SET FOREIGN_KEY_CHECKS = 0;
+SET NAMES utf8mb4;
+
+-- ── 1. PERFIS DE ACESSO ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS perfis (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nome       VARCHAR(80)  NOT NULL,
+    slug       VARCHAR(80)  NOT NULL UNIQUE,
+    permissoes JSON         NOT NULL DEFAULT ('{}'),
+    ativo      TINYINT(1)   NOT NULL DEFAULT 1,
+    criado_em  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Perfis de acesso com permissões por módulo';
+
+INSERT INTO perfis (nome, slug, permissoes) VALUES
+('Administrador', 'admin', JSON_OBJECT(
+    'dashboard','true','vendas','true','compras','true',
+    'financeiro','true','estoque','true','clientes','true',
+    'fornecedores','true','relatorios','true','configuracoes','true'
+)),
+('Gerente', 'gerente', JSON_OBJECT(
+    'dashboard','true','vendas','true','compras','true',
+    'financeiro','true','estoque','true','clientes','true',
+    'fornecedores','true','relatorios','true','configuracoes','false'
+)),
+('Financeiro', 'financeiro', JSON_OBJECT(
+    'dashboard','true','vendas','view','compras','view',
+    'financeiro','true','estoque','false','clientes','true',
+    'fornecedores','true','relatorios','true','configuracoes','false'
+)),
+('Operador de Caixa', 'operador', JSON_OBJECT(
+    'dashboard','true','vendas','true','compras','false',
+    'financeiro','false','estoque','view','clientes','true',
+    'fornecedores','false','relatorios','false','configuracoes','false'
+)),
+('Estoque', 'estoque', JSON_OBJECT(
+    'dashboard','true','vendas','view','compras','view',
+    'financeiro','false','estoque','true','clientes','false',
+    'fornecedores','true','relatorios','view','configuracoes','false'
+))
+ON DUPLICATE KEY UPDATE id=id;
+
+-- ── 2. ADICIONAR perfil_id EM usuarios ───────────────────────
+ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS perfil_id INT UNSIGNED NULL
+        COMMENT 'FK para perfis' AFTER nivel,
+    ADD CONSTRAINT fk_usuario_perfil
+        FOREIGN KEY (perfil_id) REFERENCES perfis(id)
+        ON DELETE SET NULL ON UPDATE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_usuario_perfil ON usuarios(perfil_id);
+
+-- ── 3. CONFIG EMPRESA ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS config_empresa (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    razao_social  VARCHAR(150) NULL,
+    nome_fantasia VARCHAR(150) NULL,
+    cnpj          VARCHAR(18)  NULL,
+    telefone      VARCHAR(20)  NULL,
+    celular       VARCHAR(20)  NULL,
+    email         VARCHAR(100) NULL,
+    site          VARCHAR(150) NULL,
+    cep           VARCHAR(9)   NULL,
+    logradouro    VARCHAR(150) NULL,
+    numero        VARCHAR(10)  NULL,
+    complemento   VARCHAR(100) NULL,
+    bairro        VARCHAR(80)  NULL,
+    cidade        VARCHAR(80)  NULL,
+    uf            CHAR(2)      NULL,
+    logo          VARCHAR(200) NULL,
+    cor_primaria  VARCHAR(7)   NOT NULL DEFAULT '#1A1A1A',
+    atualizado_em DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Dados e configurações da empresa';
+
+-- Garante que existe sempre 1 linha
+INSERT INTO config_empresa (id, razao_social, nome_fantasia)
+VALUES (1, 'Minha Empresa', 'Minha Empresa')
+ON DUPLICATE KEY UPDATE id=id;
+
+SET FOREIGN_KEY_CHECKS = 1;
